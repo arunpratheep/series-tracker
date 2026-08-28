@@ -466,7 +466,7 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
 const K3 = 'spine-v3', K2 = 'spine-v2';
 /* Bumped on every change. Shown in Settings so you can tell at a glance
    whether the version you're looking at is the one that was deployed. */
-const BUILD = 'b12 · tap-fix';
+const BUILD = 'b13 · link-save';
 
 /* {q} is replaced with the URL-encoded series title. On a phone these
    open the native app when it's installed, and the website otherwise.
@@ -2538,8 +2538,8 @@ function openNoteSheet(id){
     });
 }
 function openLinkSheet(id){
-  const rec = db.shows[id];
   const p = platformOf(id);
+  const rec = db.shows[id];
   openSheet('Exact link',
     '<p class="h-sub" style="margin:0 0 4px">Paste the ' + esc(p ? p.name : 'streaming') +
       ' page for this series. One tap then goes straight there instead of to a search.</p>' +
@@ -2550,19 +2550,37 @@ function openLinkSheet(id){
     (rec.link ? '<button class="btn wide" id="linkClear" style="margin-top:9px">Remove link</button>' : ''),
     function(){
       const doSave = function(){
-        const v = document.getElementById('linkBox').value.trim();
-        if(v && !/^https?:\/\//i.test(v)){ toast('That needs to start with https://'); return; }
-        if(v) rec.link = v; else delete rec.link;
-        rec.touched = Date.now(); save(); closeSheet(); rerender();
-        toast(v ? 'Link saved' : 'Link removed');
+        try {
+          const box = document.getElementById('linkBox');
+          if(!box){ toast('Link box missing — reopen and try again'); return; }
+          const v = box.value.trim();
+          if(v && !/^https?:\/\//i.test(v)){ toast('That needs to start with https://'); return; }
+          /* look the record up now, not when the sheet opened: a cloud sync
+             may have replaced the whole db object in between */
+          const r = db.shows[id];
+          if(!r){ toast('That series is no longer in your library'); closeSheet(); return; }
+          if(v) r.link = v; else delete r.link;
+          r.touched = Date.now();
+          save(); closeSheet(); rerender();
+          toast(v ? 'Link saved' : 'Link removed');
+        } catch(err){
+          console.error('save link failed', err);
+          toast('Save failed: ' + (err && err.message ? err.message : 'unknown error'));
+        }
       };
       bindTap(document.getElementById('linkGo'), doSave);
       document.getElementById('linkBox').addEventListener('keydown', function(e){
         if(e.key === 'Enter'){ e.preventDefault(); doSave(); }
       });
       bindTap(document.getElementById('linkClear'), function(){
-        delete rec.link; rec.touched = Date.now(); save(); closeSheet(); rerender();
-        toast('Link removed');
+        try {
+          const r = db.shows[id];
+          if(r){ delete r.link; r.touched = Date.now(); }
+          save(); closeSheet(); rerender(); toast('Link removed');
+        } catch(err){
+          console.error('remove link failed', err);
+          toast('Remove failed: ' + (err && err.message ? err.message : 'unknown error'));
+        }
       });
     });
 }
