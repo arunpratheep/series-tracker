@@ -311,6 +311,85 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
 .switch.on::after{transform:translateX(17px);background:var(--accent)}
 
 /* ============ desktop ============ */
+/* ---- season tabs: one season at a time, no endless scroll ---- */
+.stabs{display:flex;gap:7px;overflow-x:auto;padding:2px 16px 10px;margin:0 -16px;scrollbar-width:none}
+.stabs::-webkit-scrollbar{display:none}
+.stab{flex:none;min-width:58px;min-height:58px;padding:7px 12px;border-radius:14px;border:1px solid var(--line);
+  background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:.15s}
+.stab b{font-size:15px;font-weight:600;line-height:1}
+.stab i{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);font-style:normal}
+.stab.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.stab.on i{color:var(--accent-ink);opacity:.85}
+.stab.full{border-color:color-mix(in srgb,var(--done) 55%,var(--line))}
+.stab.full i{color:var(--done)}
+.stab.on.full{background:var(--done);border-color:var(--done);color:#08210F}
+.stab.on.full i{color:#08210F}
+
+.spanel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.spanel-top{display:flex;align-items:center;gap:11px;margin-bottom:12px}
+.spanel-top h3{font-family:'Bricolage Grotesque',sans-serif;font-size:19px;font-weight:600;flex:1;letter-spacing:-.01em}
+.spanel-tools{display:flex;gap:7px;flex-wrap:wrap}
+
+/* the next-up episode, hoisted out and made unmissable */
+.nextcard{background:color-mix(in srgb,var(--accent) 11%,var(--card));
+  border:1.5px solid var(--accent);border-radius:16px;padding:14px;margin-bottom:12px}
+.nextcard h4{font-size:16.5px;font-weight:600;line-height:1.3;margin-bottom:5px}
+.nextcard .meta{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--muted);margin-bottom:12px}
+.nextcard .row{display:flex;gap:8px}
+.nextcard .row .btn{flex:1}
+
+/* roomier episode rows — the whole row is the tap target */
+.eprow{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;padding:9px 10px;
+  border-radius:12px;transition:background .15s;text-align:left}
+.eprow + .eprow{border-top:1px solid color-mix(in srgb,var(--line) 45%,transparent)}
+.eprow:active{background:var(--card2)}
+.eprow.on .eptext b{color:var(--muted);font-weight:500}
+.eprow.next{background:color-mix(in srgb,var(--accent) 13%,transparent);
+  box-shadow:inset 0 0 0 1.5px var(--accent)}
+.eprow.picked{background:color-mix(in srgb,var(--accent) 16%,transparent);
+  box-shadow:inset 0 0 0 1.5px var(--accent)}
+.epbox{width:28px;height:28px;flex:none;border-radius:9px;border:1.7px solid var(--line);
+  display:flex;align-items:center;justify-content:center;transition:.16s}
+.epbox svg{width:15px;height:15px;fill:none;stroke:transparent;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.eprow.on .epbox{background:var(--accent);border-color:var(--accent)}
+.eprow.on .epbox svg{stroke:var(--accent-ink)}
+.eprow.picked .epbox{background:var(--accent);border-color:var(--accent);border-radius:50%}
+.eprow.picked .epbox svg{stroke:var(--accent-ink)}
+.eptext{flex:1;min-width:0}
+.eptext b{display:block;font-size:14.5px;font-weight:600;line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.eptext span{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);margin-top:3px}
+.uphere{width:42px;height:42px;flex:none;border-radius:11px;border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;color:var(--muted);transition:.15s}
+.uphere:active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+/* ---- stats extras ---- */
+.streak{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;padding:16px;margin-bottom:11px}
+.streak .flame{font-size:34px;line-height:1;flex:none}
+.streak b{display:block;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:27px;line-height:1.1}
+.streak span{display:block;font-size:12.5px;color:var(--muted);margin-top:3px}
+.spark{display:flex;align-items:flex-end;gap:3px;height:78px;padding:12px 0 0}
+.spark div{flex:1;background:var(--line);border-radius:3px 3px 0 0;min-height:3px;transition:height .3s}
+.spark div.hot{background:var(--accent)}
+.sparkx{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;
+  font-size:9.5px;color:var(--muted);margin-top:6px}
+.funfact{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;
+  font-size:14px;line-height:1.6;margin-bottom:9px;display:flex;gap:11px;align-items:flex-start}
+.funfact .em{font-size:22px;line-height:1.2;flex:none}
+
+/* ---- discover ---- */
+.recwrap{display:flex;gap:13px;padding:13px;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;margin-bottom:11px}
+.recposter{width:70px;height:105px;flex:none;border-radius:10px;object-fit:cover;background:var(--card2)}
+.recposter.ph{display:flex;align-items:center;justify-content:center;
+  font-family:'Bricolage Grotesque',sans-serif;font-size:24px;color:var(--line)}
+.recbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.recbody h4{font-size:15px;font-weight:600;line-height:1.25}
+.recwhy{font-size:12px;color:var(--accent);line-height:1.4}
+.recsum{font-size:12.5px;color:var(--muted);line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
 @media (min-width:900px){
   :root{--nav-h:0px}
   body{padding-bottom:0;display:grid;grid-template-columns:236px 1fr}
@@ -360,6 +439,9 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
   </button>
   <button class="iconbtn" id="btnAdd" aria-label="Add a series">
     <svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+  <button class="iconbtn" id="btnSettings" aria-label="Settings">
+    <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><path d="M12 2.8v2.6M12 18.6v2.6M21.2 12h-2.6M5.4 12H2.8M18.6 5.4l-1.9 1.9M7.3 16.7l-1.9 1.9M18.6 18.6l-1.9-1.9M7.3 7.3 5.4 5.4"/></svg>
   </button>
 </header>
 
@@ -474,46 +556,99 @@ function save(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   CLOUD SYNC — Firebase Auth + Firestore
+   CLOUD SYNC — Firebase Auth + Firestore, with shared households
    Local storage stays the source of truth when signed out, or
    offline, or if Firebase isn't configured yet. Nothing here
    blocks the app from working exactly as before.
+
+   Data model:
+     users/{uid}                  -> { householdId }
+     households/{hid}             -> the full app data blob (shows,
+                                       watched, platforms, prefs) —
+                                       full overwrite on every save,
+                                       exactly like the old per-user doc
+     households/{hid}/meta/info   -> { members: { uid: {email, joinedAt} } }
+     invites/{code}               -> { householdId, createdBy, createdAt }
+     spineUsers/{uid}             -> legacy pre-household doc, read once
+                                       for migration, never written again
    ═══════════════════════════════════════════════════════════ */
-let fb = null, cloudUser = null, unsubSnap = null, applyingRemote = false, cloudBusy = false;
+let fb = null, cloudUser = null, unsubSnap = null, unsubMeta = null,
+    applyingRemote = false, cloudBusy = false;
+let householdId = null, householdMembers = {}, needsHouseholdSetup = false,
+    hasLegacyData = false, inviteCode = null;
 
 window.addEventListener('fb-ready', function(){
   fb = window.__fb;
   fb.onAuthStateChanged(fb.auth, function(user){
     cloudUser = user || null;
-    if(user) attachCloud(user.uid); else detachCloud();
+    if(user) attachCloud(user.uid, user.email);
+    else { detachCloud(); resetHouseholdState(); }
     if(route.name === 'settings') viewSettings();
   });
 });
 
-function cloudRef(uid){ return fb.doc(fb.fs, 'spineUsers', uid); }
+function resetHouseholdState(){
+  householdId = null; householdMembers = {}; needsHouseholdSetup = false;
+  hasLegacyData = false; inviteCode = null;
+}
+function newId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+function newInviteCode(){
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   /* no 0/O or 1/I mix-ups */
+  let s = ''; for(let i = 0; i < 6; i++) s += A[Math.floor(Math.random() * A.length)];
+  return s;
+}
 
-async function attachCloud(uid){
+function usersRef(uid){ return fb.doc(fb.fs, 'users', uid); }
+function householdRef(hid){ return fb.doc(fb.fs, 'households', hid); }
+function householdMetaRef(hid){ return fb.doc(fb.fs, 'households', hid, 'meta', 'info'); }
+function inviteRef(code){ return fb.doc(fb.fs, 'invites', code); }
+function legacyRef(uid){ return fb.doc(fb.fs, 'spineUsers', uid); }
+
+async function attachCloud(uid, email){
   cloudBusy = true;
+  if(route.name === 'settings') viewSettings();
   try {
-    const snap = await fb.getDoc(cloudRef(uid));
-    if(snap.exists() && snap.data() && snap.data().shows && Object.keys(snap.data().shows).length){
-      applyingRemote = true;
-      db = Object.assign(JSON.parse(JSON.stringify(BLANK)), snap.data());
-      db.prefs = Object.assign({}, BLANK.prefs, db.prefs || {});
-      localStorage.setItem(K3, JSON.stringify(db));
-      applyingRemote = false;
+    const uref = await fb.getDoc(usersRef(uid));
+    if(uref.exists() && uref.data().householdId){
+      await enterHousehold(uref.data().householdId);
+      toast('Signed in — synced');
     } else {
-      await pushCloud();   /* first sign-in on this account: seed the cloud from what's local */
+      /* no household yet — check for pre-sharing local data so the
+         setup screen can offer to carry it into a new household */
+      needsHouseholdSetup = true;
+      try {
+        const legacy = await fb.getDoc(legacyRef(uid));
+        hasLegacyData = !!(legacy.exists() && legacy.data() && legacy.data().shows &&
+          Object.keys(legacy.data().shows).length);
+      } catch(e){ hasLegacyData = false; }
     }
-    toast('Signed in — synced');
   } catch(e){
-    console.error('cloud fetch failed', e);
+    console.error('cloud attach failed', e);
     toast("Signed in, but couldn't reach the sync server — working from this device for now");
   }
   cloudBusy = false;
   rerender();
+}
 
-  unsubSnap = fb.onSnapshot(cloudRef(uid), function(snap){
+async function enterHousehold(hid){
+  householdId = hid;
+  const [dataSnap, metaSnap] = await Promise.all([
+    fb.getDoc(householdRef(hid)), fb.getDoc(householdMetaRef(hid))
+  ]);
+  if(dataSnap.exists()){
+    applyingRemote = true;
+    db = Object.assign(JSON.parse(JSON.stringify(BLANK)), dataSnap.data());
+    db.prefs = Object.assign({}, BLANK.prefs, db.prefs || {});
+    localStorage.setItem(K3, JSON.stringify(db));
+    applyingRemote = false;
+  }
+  householdMembers = (metaSnap.exists() && metaSnap.data().members) || {};
+  startHouseholdListeners(hid);
+}
+
+function startHouseholdListeners(hid){
+  detachCloud();
+  unsubSnap = fb.onSnapshot(householdRef(hid), function(snap){
     if(!snap.exists() || snap.metadata.hasPendingWrites) return;   /* ignore the echo of our own write */
     applyingRemote = true;
     db = Object.assign(JSON.parse(JSON.stringify(BLANK)), snap.data());
@@ -522,17 +657,86 @@ async function attachCloud(uid){
     applyingRemote = false;
     rerender();
     toast('Updated from another device');
-  }, function(e){ console.error('cloud listener error', e); });
+  }, function(e){ console.error('household listener error', e); });
+
+  unsubMeta = fb.onSnapshot(householdMetaRef(hid), function(snap){
+    if(!snap.exists()) return;
+    householdMembers = snap.data().members || {};
+    if(route.name === 'settings') viewSettings();
+  }, function(e){ console.error('household meta listener error', e); });
 }
 
 function detachCloud(){
   if(unsubSnap){ unsubSnap(); unsubSnap = null; }
+  if(unsubMeta){ unsubMeta(); unsubMeta = null; }
 }
 
 async function pushCloud(){
-  if(!fb || !cloudUser) return;
-  try { await fb.setDoc(cloudRef(cloudUser.uid), db); }
+  if(!fb || !cloudUser || !householdId) return;
+  try { await fb.setDoc(householdRef(householdId), db); }
   catch(e){ console.error('cloud save failed', e); toast("Couldn't sync — will retry on your next change"); }
+}
+
+/* start a brand-new household, optionally seeded from this device's
+   pre-sharing data (offered only when hasLegacyData is true) */
+async function createHousehold(uid, email, seedData){
+  const hid = newId();
+  const data = Object.assign(JSON.parse(JSON.stringify(BLANK)), seedData || {});
+  if(!data.platforms || !data.platforms.length){
+    data.platforms = DEFAULT_PLATFORMS.map(function(p,i){ return Object.assign({ active:true, order:i }, p); });
+  }
+  await fb.setDoc(householdRef(hid), data);
+  await fb.setDoc(householdMetaRef(hid), { members: { [uid]: { email: email || '', joinedAt: Date.now() } } });
+  await fb.setDoc(usersRef(uid), { householdId: hid });
+  return hid;
+}
+
+/* join an existing household via a code its owner generated */
+async function joinHousehold(codeRaw, uid, email){
+  const code = codeRaw.trim().toUpperCase();
+  const inv = await fb.getDoc(inviteRef(code));
+  if(!inv.exists()) throw new Error("That code doesn't match an invite.");
+  const hid = inv.data().householdId;
+  await fb.setDoc(householdMetaRef(hid), { members: { [uid]: { email: email || '', joinedAt: Date.now() } } }, { merge: true });
+  await fb.setDoc(usersRef(uid), { householdId: hid });
+  return hid;
+}
+
+async function generateInvite(){
+  if(!fb || !cloudUser || !householdId) return null;
+  const code = newInviteCode();
+  await fb.setDoc(inviteRef(code), { householdId, createdBy: cloudUser.uid, createdAt: Date.now() });
+  return code;
+}
+
+async function handleCreateHousehold(){
+  cloudBusy = true; viewSettings();
+  try {
+    let seed = null;
+    if(hasLegacyData){
+      const legacy = await fb.getDoc(legacyRef(cloudUser.uid));
+      seed = legacy.exists() ? legacy.data() : null;
+    }
+    const hid = await createHousehold(cloudUser.uid, cloudUser.email, seed);
+    needsHouseholdSetup = false;
+    await enterHousehold(hid);
+    toast(seed ? "Household created — what's already tracked here came with it" : 'Household created');
+  } catch(e){ console.error(e); toast("Couldn't create the household — try again."); }
+  cloudBusy = false; rerender();
+}
+
+async function handleJoinHousehold(){
+  const codeEl = document.getElementById('joinCode');
+  const code = codeEl ? codeEl.value.trim() : '';
+  if(!code){ toast('Enter the invite code'); return; }
+  cloudBusy = true; viewSettings();
+  try {
+    const hid = await joinHousehold(code, cloudUser.uid, cloudUser.email);
+    needsHouseholdSetup = false;
+    await enterHousehold(hid);
+    toast('Joined — syncing your shared library');
+  } catch(e){ toast(e.message || "Couldn't join with that code"); }
+  cloudBusy = false; rerender();
 }
 
 function authErrorMessage(e){
@@ -557,8 +761,11 @@ async function doSignIn(email, pw){
   catch(e){ cloudBusy = false; toast(authErrorMessage(e)); viewSettings(); }
 }
 async function doSignOut(){
-  try { await fb.signOut(fb.auth); toast('Signed out — this device keeps its own copy'); }
-  catch(e){ toast("Couldn't sign out — try again."); }
+  try {
+    detachCloud(); resetHouseholdState();
+    await fb.signOut(fb.auth);
+    toast('Signed out — this device keeps its own copy');
+  } catch(e){ toast("Couldn't sign out — try again."); }
 }
 
 /* ═══════════ helpers ═══════════ */
@@ -657,7 +864,7 @@ function platformOf(id){
 function activePlatforms(){
   return db.platforms.slice().sort((a,b)=>a.order-b.order).filter(p => p.active !== false);
 }
-function sortedPlatforms(){ return db.platforms.slice().sort((a,b)=>a.order-b.order); }
+function sortedPlatforms(){ return (db.platforms || []).slice().sort((a,b)=>a.order-b.order); }
 function platformUsage(pid){ return allShows().filter(s => s.platform === pid).length; }
 
 /* ═══════════ ranking for Watch Next ═══════════ */
@@ -1231,39 +1438,74 @@ function viewShow(id){
         (pl.id === rec.platform ? ' selected' : '') + '>' + esc(pl.name) + '</option>').join('') +
     '</select>';
 
-  /* seasons */
-  html += '<div class="sect"><div class="sect-head"><h2 class="sect-title">Seasons</h2></div>';
-  keys.forEach(function(k){
+  /* ---- seasons: tabs, so only one season's episodes are ever on screen ---- */
+  const active = openSeasons[id] !== undefined && seasons[openSeasons[id]]
+    ? openSeasons[id]
+    : (p.next ? p.next[E_S] : keys[keys.length - 1]);
+
+  html += '<div class="sect"><div class="sect-head"><h2 class="sect-title">Seasons</h2>' +
+    (p.status !== 'done'
+      ? '<button class="sect-more" data-complete="' + id + '">Mark whole series done</button>'
+      : '') +
+    '</div>';
+
+  html += '<div class="stabs">' + keys.map(function(k){
     const eps = seasons[k];
-    const done = eps.filter(e => w[e[E_ID]]).length;
-    const isOpen = openSeasons[id] === k;
-    const sNext = eps.find(e => !w[e[E_ID]] && hasAired(e[E_DATE]));
-    html += '<section class="season' + (isOpen ? ' open' : '') + '" data-season="' + k + '">' +
-      '<button class="season-head" data-fold="' + k + '" aria-expanded="' + isOpen + '">' +
-        '<h3>' + (k === 0 ? 'Specials' : 'Season ' + k) + '</h3>' +
-        '<span class="mono">' + done + '/' + eps.length + '</span>' +
-        '<div class="pbar' + (done===eps.length?' done':'') + '"><i style="width:' +
-          (done/eps.length*100) + '%"></i></div>' +
-        '<span class="caret">' + ic('chev','sm') + '</span></button>' +
-      '<div class="season-body">' +
-        '<div class="season-tools">' +
-          '<button class="btn sm" data-sall="' + k + '">' +
-            (done === eps.length ? 'Clear season' : 'Mark season watched') + '</button>' +
-          (sNext ? '<button class="btn sm" data-supto="' + sNext[E_ID] + '">Up to next</button>' : '') +
-          '<button class="btn sm" data-ssel="' + k + '">Select…</button>' +
-        '</div>' +
-        eps.map(e => epRow(e, w, p.next && p.next[E_ID] === e[E_ID])).join('') +
-      '</div></section>';
-  });
+    const done = eps.filter(x => w[x[E_ID]]).length;
+    const full = done === eps.length;
+    return '<button class="stab' + (k === active ? ' on' : '') + (full ? ' full' : '') + '" ' +
+      'data-sopen="' + k + '" aria-pressed="' + (k === active) + '">' +
+      '<b>' + (k === 0 ? 'Sp' : 'S' + k) + '</b>' +
+      '<i>' + (full ? '✓' : done + '/' + eps.length) + '</i></button>';
+  }).join('') + '</div>';
+
+  const eps = seasons[active] || [];
+  const sDone = eps.filter(x => w[x[E_ID]]).length;
+  const sNext = eps.find(x => !w[x[E_ID]] && hasAired(x[E_DATE]));
+
+  html += '<div class="spanel">' +
+    '<div class="spanel-top">' +
+      '<h3>' + (active === 0 ? 'Specials' : 'Season ' + active) + '</h3>' +
+      '<span class="mono">' + sDone + '/' + eps.length + '</span>' +
+    '</div>' +
+    '<div class="sc-foot" style="margin:0 0 12px">' +
+      '<div class="pbar' + (sDone === eps.length ? ' done' : '') + '">' +
+        '<i style="width:' + (eps.length ? sDone/eps.length*100 : 0) + '%"></i></div>' +
+      '<span class="pct">' + (eps.length ? Math.round(sDone/eps.length*100) : 0) + '%</span>' +
+    '</div>' +
+    '<div class="spanel-tools">' +
+      '<button class="btn sm" data-sall="' + active + '">' +
+        (sDone === eps.length ? 'Clear season' : 'Mark season watched') + '</button>' +
+      '<button class="btn sm" data-ssel="' + active + '">' +
+        (selSeason === active ? 'Cancel select' : 'Select…') + '</button>' +
+    '</div>' +
+  '</div>';
+
+  /* the next unwatched episode of this season, lifted to the top */
+  if(sNext && !rec.hold){
+    html += '<div class="nextcard">' +
+      '<div class="lbl" style="margin:0 0 8px">Next in this season</div>' +
+      '<h4>' + epCode(sNext[E_S], sNext[E_N]) + ' · ' + esc(sNext[E_NAME] || 'Untitled') + '</h4>' +
+      '<div class="meta">' + fmtDate(sNext[E_DATE]) + ' · ' + fmtRun(sNext[E_RUN]) + '</div>' +
+      '<div class="row">' +
+        '<button class="btn primary" data-mark="' + id + ':' + sNext[E_ID] + '">' +
+          ic('check','sm') + 'Watched</button>' +
+        '<button class="btn" data-tohere="' + sNext[E_ID] + '">' + ic('down','sm') + 'All up to here</button>' +
+      '</div></div>';
+  }
+
+  html += '<div class="spanel" style="padding:6px 8px">' +
+    eps.map(x => epRow(x, w, sNext && sNext[E_ID] === x[E_ID])).join('') + '</div>';
+
   html += '</div></div>';
 
   mainEl.innerHTML = html;
 
   const ms = document.getElementById('moreSum');
   if(ms) ms.onclick = function(){
-    const s = document.getElementById('sum');
-    s.classList.toggle('clip');
-    ms.textContent = s.classList.contains('clip') ? 'Read more' : 'Show less';
+    const sEl = document.getElementById('sum');
+    sEl.classList.toggle('clip');
+    ms.textContent = sEl.classList.contains('clip') ? 'Read more' : 'Show less';
   };
   window.scrollTo({top:0});
 }
@@ -1271,20 +1513,80 @@ function kv(k,v){ return '<div><dt>' + esc(k) + '</dt><dd>' + esc(String(v)) + '
 
 function epRow(e, w, isNext){
   const on = !!w[e[E_ID]], aired = hasAired(e[E_DATE]);
-  return '<div class="ep' + (on ? ' on' : '') + (picked.has(e[E_ID]) ? ' picked' : '') + '" ' +
+  const picked_ = picked.has(e[E_ID]);
+  return '<div class="eprow' + (on ? ' on' : '') + (picked_ ? ' picked' : '') +
+      (isNext && !on ? ' next' : '') + '" ' +
       'data-ep="' + e[E_ID] + '" data-eps="' + e[E_S] + '" data-epn="' + (e[E_N]||0) + '">' +
-    '<button class="epchk" data-toggle="' + e[E_ID] + '" aria-pressed="' + on + '" ' +
-      'aria-label="' + (on?'Unmark ':'Mark ') + epCode(e[E_S],e[E_N]) + ' watched">' +
-      '<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M4 12.5 9 17.5 20 6.5"/></svg></button>' +
-    '<div class="ep-main">' +
-      '<div class="ep-line"><span class="mono">' + epCode(e[E_S], e[E_N]) + '</span>' +
-        '<span class="ep-name">' + esc(e[E_NAME] || 'Untitled') + '</span>' +
-        (isNext ? '<span class="pill" style="color:var(--accent);border-color:var(--accent)">Next</span>' : '') +
-        (aired ? '' : '<span class="pill">Not aired</span>') + '</div>' +
-      '<div class="ep-sub">' + fmtDate(e[E_DATE]) + ' · ' + fmtRun(e[E_RUN]) + '</div>' +
-      (on || !aired ? '' : '<button class="ep-tohere" data-tohere="' + e[E_ID] + '">Watched up to here</button>') +
-    '</div></div>';
+    '<button class="epbox" data-toggle="' + e[E_ID] + '" aria-pressed="' + on + '" ' +
+      'aria-label="' + (on ? 'Unmark ' : 'Mark ') + epCode(e[E_S],e[E_N]) + ' watched">' +
+      '<svg viewBox="0 0 24 24"><path d="M4 12.5 9 17.5 20 6.5"/></svg></button>' +
+    '<button class="eptext" data-toggle="' + e[E_ID] + '" tabindex="-1">' +
+      '<b>' + epCode(e[E_S], e[E_N]) + '  ' + esc(e[E_NAME] || 'Untitled') + '</b>' +
+      '<span>' + fmtDate(e[E_DATE]) + ' · ' + fmtRun(e[E_RUN]) +
+        (aired ? '' : ' · not aired') + (isNext && !on ? ' · NEXT' : '') + '</span>' +
+    '</button>' +
+    (on || !aired ? '<span style="width:42px;flex:none"></span>'
+      : '<button class="uphere" data-tohere="' + e[E_ID] + '" ' +
+        'aria-label="Mark everything up to and including ' + epCode(e[E_S],e[E_N]) + ' watched" ' +
+        'title="Mark everything up to here as watched">' + ic('down','sm') + '</button>') +
+  '</div>';
+}
+
+
+/* ═══════════ viewing history analytics ═══════════ */
+function allWatchStamps(){
+  const out = [];
+  Object.keys(db.watched).forEach(function(sid){
+    const w = db.watched[sid];
+    Object.keys(w).forEach(function(eid){ if(w[eid] > 1000000) out.push(w[eid]); });
+  });
+  return out.sort((a,b) => a - b);
+}
+function dayKey(ts){ const d = new Date(ts); d.setHours(0,0,0,0); return d.getTime(); }
+
+function streaks(){
+  const days = {};
+  allWatchStamps().forEach(function(ts){ days[dayKey(ts)] = true; });
+  const keys = Object.keys(days).map(Number).sort((a,b) => a - b);
+  if(!keys.length) return { current:0, longest:0, activeDays:0 };
+
+  let longest = 1, run = 1;
+  for(let i = 1; i < keys.length; i++){
+    run = (keys[i] - keys[i-1] === DAY) ? run + 1 : 1;
+    if(run > longest) longest = run;
+  }
+  /* a streak still counts if the last watch was today or yesterday */
+  const today = dayKey(Date.now());
+  let current = 0;
+  if(days[today] || days[today - DAY]){
+    let cursor = days[today] ? today : today - DAY;
+    while(days[cursor]){ current++; cursor -= DAY; }
+  }
+  return { current, longest, activeDays: keys.length };
+}
+
+function weeklyBuckets(n){
+  const stamps = allWatchStamps();
+  const start = startOfWeek();
+  const out = [];
+  for(let i = n - 1; i >= 0; i--){
+    const from = start - i * 7 * DAY, to = from + 7 * DAY;
+    out.push({ from, count: stamps.filter(t => t >= from && t < to).length });
+  }
+  return out;
+}
+function busiestDay(){
+  const names = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const tally = [0,0,0,0,0,0,0];
+  allWatchStamps().forEach(function(ts){ tally[new Date(ts).getDay()]++; });
+  const max = Math.max.apply(null, tally);
+  if(!max) return null;
+  return { name: names[tally.indexOf(max)], count: max };
+}
+function humanTime(mins){
+  const days = mins / 1440;
+  if(days >= 1) return days.toFixed(1) + ' full days';
+  return Math.round(mins / 60) + ' hours';
 }
 
 /* ---------- STATS ---------- */
@@ -1326,19 +1628,59 @@ function viewStats(){
     }).join('') + '</div>';
   }
 
+  const st = streaks();
+  const weeks = weeklyBuckets(12);
+  const peak = Math.max.apply(null, weeks.map(x => x.count).concat([1]));
+  const lastWeek = weeks[weeks.length - 2] ? weeks[weeks.length - 2].count : 0;
+  const thisWeek = weeks[weeks.length - 1].count;
+  const delta = thisWeek - lastWeek;
+  const bd = busiestDay();
+
+  const sparkBars = weeks.map(function(wk){
+    const h = Math.max(3, Math.round(wk.count / peak * 100));
+    return '<div class="' + (wk.count ? 'hot' : '') + '" style="height:' + h + '%" ' +
+      'title="' + wk.count + ' episodes"></div>';
+  }).join('');
+
+  const facts = [];
+  if(st.current > 1) facts.push(['🔥', 'You have watched something ' + st.current + ' days running.']);
+  if(mins > 1440) facts.push(['⏳', 'That is ' + humanTime(mins) + ' of your life. No regrets.']);
+  if(bd) facts.push(['📅', bd.name + ' is your biggest viewing day — ' + bd.count + ' episodes logged.']);
+  if(delta > 0 && lastWeek > 0) facts.push(['📈', 'You are ' + delta + ' episodes ahead of last week.']);
+  else if(delta < 0 && thisWeek > 0) facts.push(['📉', Math.abs(delta) + ' fewer than last week. Slow week.']);
+  if(remaining > 0) facts.push(['🎯', remaining + ' episodes stand between you and a clean slate.']);
+  if(by('done') >= 3) facts.push(['🏆', 'You have finished ' + by('done') + ' series start to finish.']);
+
   mainEl.innerHTML = '<div class="view">' +
     '<p class="h-eyebrow">Your viewing</p><h1 class="h-title">Statistics.</h1>' +
-    '<div class="sect"><div class="statgrid">' +
-      '<div class="statcard accent"><b>' + eps + '</b><span>Episodes watched</span></div>' +
-      '<div class="statcard"><b>' + fmtRun(mins) + '</b><span>Total time</span></div>' +
-      '<div class="statcard"><b>' + remaining + '</b><span>Episodes left</span></div>' +
-      '<div class="statcard"><b>' + overall + '%</b><span>Overall complete</span></div>' +
-    '</div></div>' +
-    '<div class="sect"><div class="sect-head"><h2 class="sect-title">This week &amp; month</h2></div>' +
+
+    '<div class="sect" style="margin-top:22px">' +
+      '<div class="streak"><span class="flame">' + (st.current > 0 ? '🔥' : '🌙') + '</span>' +
+        '<div><b>' + st.current + (st.current === 1 ? ' day' : ' days') + '</b>' +
+        '<span>' + (st.current > 0 ? 'Current streak · best ever ' + st.longest : 'No streak going — watch something tonight') +
+        '</span></div></div>' +
       '<div class="statgrid">' +
-        '<div class="statcard"><b>' + week + '</b><span>Episodes this week</span></div>' +
-        '<div class="statcard"><b>' + month + '</b><span>Episodes this month</span></div>' +
+        '<div class="statcard accent"><b>' + eps + '</b><span>Episodes watched</span></div>' +
+        '<div class="statcard"><b>' + fmtRun(mins) + '</b><span>Total time</span></div>' +
+        '<div class="statcard"><b>' + remaining + '</b><span>Episodes left</span></div>' +
+        '<div class="statcard"><b>' + overall + '%</b><span>Overall complete</span></div>' +
       '</div></div>' +
+
+    '<div class="sect"><div class="sect-head"><h2 class="sect-title">Last 12 weeks</h2></div>' +
+      '<div class="statcard">' +
+        '<div class="spark">' + sparkBars + '</div>' +
+        '<div class="sparkx"><span>12 weeks ago</span><span>this week</span></div>' +
+      '</div>' +
+      '<div class="statgrid" style="margin-top:10px">' +
+        '<div class="statcard"><b>' + thisWeek + '</b><span>This week</span></div>' +
+        '<div class="statcard"><b>' + month + '</b><span>This month</span></div>' +
+        '<div class="statcard"><b>' + st.activeDays + '</b><span>Days watched ever</span></div>' +
+        '<div class="statcard"><b>' + st.longest + '</b><span>Longest streak</span></div>' +
+      '</div></div>' +
+
+    (facts.length ? '<div class="sect"><div class="sect-head"><h2 class="sect-title">Fun facts</h2></div>' +
+      facts.map(f => '<div class="funfact"><span class="em">' + f[0] + '</span><span>' + esc(f[1]) + '</span></div>').join('') +
+      '</div>' : '') +
     '<div class="sect"><div class="sect-head"><h2 class="sect-title">Library breakdown</h2></div>' +
       '<div class="statgrid">' +
         '<div class="statcard"><b>' + shows.length + '</b><span>Total series</span></div>' +
@@ -1354,6 +1696,191 @@ function viewStats(){
 }
 
 
+
+/* ═══════════════════════════════════════════════════════════
+   DISCOVER — genre-affinity recommendations
+
+   TVmaze has no "similar shows" endpoint, so this builds a local
+   corpus from its show index (a few pages, cached for 30 days)
+   and scores each candidate on genre overlap with what you have
+   actually watched, weighted by episodes watched, nudged by rating.
+   It is taste-by-genre, not collaborative filtering — good at
+   "you liked a sitcom, here are the best other sitcoms".
+   ═══════════════════════════════════════════════════════════ */
+const CORPUS_KEY = 'spine-corpus-v1';
+const CORPUS_PAGES = 4;          /* 250 shows per page */
+const CORPUS_TTL = 30 * DAY;
+let corpus = null, corpusLoading = false, corpusError = '';
+
+function readCorpus(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(CORPUS_KEY));
+    if(raw && raw.at && (Date.now() - raw.at) < CORPUS_TTL && raw.shows && raw.shows.length) return raw.shows;
+  } catch(e){}
+  return null;
+}
+
+async function loadCorpus(){
+  const cached = readCorpus();
+  if(cached){ corpus = cached; return corpus; }
+  corpusLoading = true; corpusError = '';
+  if(route.name === 'discover') viewDiscover();
+  try {
+    const pages = [];
+    for(let i = 0; i < CORPUS_PAGES; i++) pages.push(api('/shows?page=' + i, 15000));
+    const results = await Promise.all(pages);
+    const slim = [];
+    results.forEach(function(list){
+      (list || []).forEach(function(s){
+        if(!s.genres || !s.genres.length) return;           /* ungenred rows can't be scored */
+        if(!s.rating || !s.rating.average) return;          /* nor unrated ones */
+        slim.push({
+          id: s.id, name: s.name,
+          image: s.image ? s.image.medium : null,
+          genres: s.genres,
+          rating: s.rating.average,
+          premiered: s.premiered || '',
+          status: s.status || '',
+          summary: strip(s.summary || '').slice(0, 180)
+        });
+      });
+    });
+    corpus = slim;
+    try { localStorage.setItem(CORPUS_KEY, JSON.stringify({ at: Date.now(), shows: slim })); }
+    catch(e){ console.warn('corpus too large to cache', e); }
+  } catch(e){
+    corpusError = apiMessage(e);
+  }
+  corpusLoading = false;
+  if(route.name === 'discover') viewDiscover();
+  return corpus;
+}
+
+/* how much you like each genre, weighted by episodes actually watched */
+function genreProfile(){
+  const prof = {}; let any = false;
+  allShows().forEach(function(rec){
+    const pr = progress(rec.id);
+    if(!pr) return;
+    const weight = pr.done > 0 ? pr.done : (rec.favourite || rec.saved ? 1 : 0);
+    if(weight <= 0) return;
+    (rec.genres || []).forEach(function(g){
+      prof[g] = (prof[g] || 0) + weight;
+      any = true;
+    });
+  });
+  if(!any) return null;
+  const max = Math.max.apply(null, Object.keys(prof).map(k => prof[k]));
+  Object.keys(prof).forEach(k => prof[k] = prof[k] / max);   /* 0..1 */
+  return prof;
+}
+
+function recommendations(limit){
+  if(!corpus) return [];
+  const prof = genreProfile();
+  if(!prof) return [];
+  const seen = {};
+  allShows().forEach(s => seen[s.id] = true);
+  const topGenres = Object.keys(prof).sort((a,b) => prof[b] - prof[a]);
+
+  const scored = corpus.filter(c => !seen[c.id]).map(function(c){
+    let overlap = 0, matched = [];
+    c.genres.forEach(function(g){
+      if(prof[g]){ overlap += prof[g]; matched.push(g); }
+    });
+    if(!overlap) return null;
+    /* average the affinity so a 5-genre show isn't automatically ahead of a focused one */
+    const affinity = overlap / Math.sqrt(c.genres.length);
+    const score = affinity * (0.55 + (c.rating / 10) * 0.45);
+    return { show: c, score: score, matched: matched };
+  }).filter(Boolean);
+
+  scored.sort((a,b) => b.score - a.score);
+
+  /* which of your shows most explains this pick */
+  return scored.slice(0, limit || 24).map(function(r){
+    let best = null, bestOverlap = 0;
+    allShows().forEach(function(rec){
+      const pr = progress(rec.id);
+      if(!pr || pr.done === 0) return;
+      const shared = (rec.genres || []).filter(g => r.matched.indexOf(g) > -1).length;
+      if(shared > bestOverlap){ bestOverlap = shared; best = rec; }
+    });
+    r.because = best;
+    return r;
+  });
+}
+
+function viewDiscover(){
+  const prof = genreProfile();
+
+  if(!prof){
+    mainEl.innerHTML = '<div class="view"><p class="h-eyebrow">Discover</p>' +
+      '<h1 class="h-title">Find your next show.</h1>' +
+      emptyState('🎭', 'Watch something first',
+        'Mark a few episodes and this page will suggest shows that match the genres you actually watch.',
+        { id:'ctaAdd3', label:'Add a series' }) + '</div>';
+    const b = document.getElementById('ctaAdd3'); if(b) b.onclick = openAddSheet;
+    return;
+  }
+
+  const topGenres = Object.keys(prof).sort((a,b) => prof[b] - prof[a]).slice(0,5);
+  let html = '<div class="view"><p class="h-eyebrow">Discover</p>' +
+    '<h1 class="h-title">Because you watch ' + esc(topGenres[0].toLowerCase()) + '.</h1>' +
+    '<p class="h-sub">Matched on the genres you spend the most episodes in.</p>' +
+    '<div class="chiprow" style="margin-top:16px">' +
+      topGenres.map(g => '<span class="chip">' + esc(g) +
+        '<span class="n">' + Math.round(prof[g] * 100) + '</span></span>').join('') +
+    '</div>';
+
+  if(corpusLoading){
+    html += '<p class="hint">Building your recommendation pool…</p>' + skeletonCards(4) + '</div>';
+    mainEl.innerHTML = html;
+    return;
+  }
+  if(!corpus){
+    html += (corpusError
+      ? '<p class="error">' + esc(corpusError) + '</p>'
+      : '<p class="h-sub">Fetch a pool of shows to match against — about 1000 titles, cached for a month.</p>') +
+      '<button class="btn primary wide" id="btnLoadCorpus" style="margin-top:14px">' +
+      (corpusError ? 'Try again' : 'Load recommendations') + '</button></div>';
+    mainEl.innerHTML = html;
+    document.getElementById('btnLoadCorpus').onclick = loadCorpus;
+    return;
+  }
+
+  const recs = recommendations(24);
+  if(!recs.length){
+    html += emptyState('🤷', 'Nothing new to suggest',
+      'Everything matching your genres is already in your library. Try adding a show from a new genre.') + '</div>';
+    mainEl.innerHTML = html;
+    return;
+  }
+
+  html += '<div class="sect">' + recs.map(function(r){
+    const c = r.show;
+    return '<div class="recwrap">' +
+      (c.image
+        ? '<img class="recposter" src="' + esc(c.image) + '" alt="" loading="lazy">'
+        : '<div class="recposter ph">' + esc(c.name.charAt(0)) + '</div>') +
+      '<div class="recbody">' +
+        '<h4>' + esc(c.name) + '</h4>' +
+        '<div class="mono">' + (c.premiered ? c.premiered.slice(0,4) : '—') +
+          ' · ★ ' + c.rating + ' · ' + esc(c.genres.slice(0,2).join(', ')) + '</div>' +
+        (r.because ? '<div class="recwhy">Because you watch ' + esc(r.because.name) + '</div>' : '') +
+        (c.summary ? '<div class="recsum">' + esc(c.summary) + '…</div>' : '') +
+        '<button class="btn sm" data-add="' + c.id + '" style="align-self:flex-start;margin-top:2px">' +
+          'Add to library</button>' +
+      '</div></div>';
+  }).join('') + '</div>';
+
+  html += '<button class="btn wide" id="btnRefreshCorpus" style="margin-top:8px">Refresh the pool</button></div>';
+  mainEl.innerHTML = html;
+  document.getElementById('btnRefreshCorpus').onclick = function(){
+    localStorage.removeItem(CORPUS_KEY); corpus = null; loadCorpus();
+  };
+}
+
 /* ---------- SETTINGS ---------- */
 function accountSection(){
   if(!window.__fb && !fb){
@@ -1365,12 +1892,36 @@ function accountSection(){
     return '<div class="sect"><div class="sect-head"><h2 class="sect-title">Sync</h2></div>' +
       '<div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:40%"></div></div>';
   }
-  if(cloudUser){
+  if(cloudUser && needsHouseholdSetup){
+    return '<div class="sect"><div class="sect-head"><h2 class="sect-title">Set up sharing</h2></div>' +
+      '<p class="h-sub" style="margin:0 0 14px">' + esc(cloudUser.email) + ' is signed in. ' +
+        'Join your partner\'s shared library with their invite code, or start a new one.</p>' +
+      '<input class="field" id="joinCode" placeholder="Invite code (e.g. K3F9QX)" ' +
+        'autocapitalize="characters" autocomplete="off" style="margin-bottom:9px">' +
+      '<button class="btn primary wide" id="btnJoinHH">Join with this code</button>' +
+      '<div style="text-align:center;margin:14px 0;color:var(--muted);font-size:12px">— or —</div>' +
+      '<button class="btn wide" id="btnCreateHH">' +
+        (hasLegacyData ? "Start a new household with what's already tracked here" : 'Start a new household') +
+      '</button></div>';
+  }
+  if(cloudUser && householdId){
+    const memberRows = Object.keys(householdMembers).map(function(uid){
+      const m = householdMembers[uid], you = cloudUser && uid === cloudUser.uid;
+      return '<div class="prow"><span class="stat-dot" style="background:var(--done)"></span>' +
+        '<span style="flex:1;font-size:14px">' + esc(m.email || 'Member') + (you ? ' (you)' : '') + '</span></div>';
+    }).join('');
     return '<div class="sect"><div class="sect-head"><h2 class="sect-title">Sync</h2></div>' +
       '<div class="prow"><span class="stat-dot" style="background:var(--done)"></span>' +
         '<span style="flex:1;font-size:14px">' + esc(cloudUser.email) + '</span>' +
         '<button class="btn sm" id="btnSignOut">Sign out</button></div>' +
-      '<p class="h-sub" style="margin-top:10px">Synced across every device signed into this account.</p></div>';
+      '<label class="lbl">Shared with</label>' + memberRows +
+      (inviteCode
+        ? '<div class="prow"><span style="flex:1;font-family:\'IBM Plex Mono\',monospace;font-size:15px;letter-spacing:.08em">' +
+            esc(inviteCode) + '</span><button class="btn sm" id="btnCopyInvite">Copy</button></div>' +
+          '<p class="h-sub" style="margin-top:8px">Share this code — your partner enters it on their own sign-up.</p>'
+        : '<button class="btn wide" id="btnInvite" style="margin-top:6px">Invite your partner</button>'
+      ) +
+    '</div>';
   }
   return '<div class="sect"><div class="sect-head"><h2 class="sect-title">Sync</h2></div>' +
     '<p class="h-sub" style="margin:0 0 14px">Sign in to access this library from your phone, laptop, ' +
@@ -1456,6 +2007,22 @@ function viewSettings(){
 
   const so = document.getElementById('btnSignOut');
   if(so) so.onclick = doSignOut;
+
+  const jhh = document.getElementById('btnJoinHH');
+  if(jhh) jhh.onclick = handleJoinHousehold;
+  const chh = document.getElementById('btnCreateHH');
+  if(chh) chh.onclick = handleCreateHousehold;
+
+  const invBtn = document.getElementById('btnInvite');
+  if(invBtn) invBtn.onclick = async function(){
+    invBtn.textContent = 'Generating…';
+    try { inviteCode = await generateInvite(); viewSettings(); }
+    catch(e){ toast("Couldn't create an invite code"); invBtn.textContent = 'Invite your partner'; }
+  };
+  const cpBtn = document.getElementById('btnCopyInvite');
+  if(cpBtn) cpBtn.onclick = function(){
+    if(navigator.clipboard) navigator.clipboard.writeText(inviteCode).then(() => toast('Code copied'));
+  };
 
   const si = document.getElementById('btnSignIn'), su = document.getElementById('btnSignUp');
   if(si && su){
@@ -1846,8 +2413,8 @@ const NAV = [
   { id:'home',     label:'Home',     icon:'home'  },
   { id:'library',  label:'Series',   icon:'grid'  },
   { id:'upnext',   label:'Up next',  icon:'play'  },
-  { id:'stats',    label:'Stats',    icon:'stats' },
-  { id:'settings', label:'Settings', icon:'gear'  }
+  { id:'discover', label:'Discover', icon:'star'  },
+  { id:'stats',    label:'Stats',    icon:'stats' }
 ];
 function paintNav(){
   const nav = document.getElementById('nav');
@@ -1867,6 +2434,8 @@ function go(name, arg){
   route = { name: name, arg: arg };
   if(NAV.some(n => n.id === name)) db.prefs.lastTab = name;
   picked.clear(); selSeason = null;
+  const stray = document.getElementById('bulkbar');
+  if(stray) stray.remove();   /* a selection made on the previous page must never linger over the next one */
   paintNav(); rerender();
   if(name !== 'show') window.scrollTo({ top:0 });
 }
@@ -1876,6 +2445,7 @@ function rerender(){
     case 'library':  viewLibrary(); break;
     case 'upnext':   viewUpNext(); break;
     case 'stats':    viewStats(); break;
+    case 'discover': viewDiscover(); break;
     case 'settings': viewSettings(); break;
     case 'show':     viewShow(route.arg); break;
     default:         viewHome();
@@ -1887,14 +2457,14 @@ function rerender(){
    ═══════════════════════════════════════════════════════════ */
 document.addEventListener('click', function(e){
   const t = e.target.closest('[data-go],[data-open],[data-fav],[data-pin],[data-prio],[data-mark],' +
-    '[data-menu],[data-toggle],[data-fold],[data-sall],[data-supto],[data-ssel],[data-tohere],' +
+    '[data-menu],[data-toggle],[data-sopen],[data-sall],[data-supto],[data-ssel],[data-tohere],' +
     '[data-back],[data-step],[data-hold],[data-resume],[data-complete],[data-rewatch],[data-del],' +
     '[data-refresh],[data-note],[data-platsheet],[data-pset],[data-add],[data-fstatus],[data-settheme],' +
     '[data-pmove],[data-ptoggle],[data-pdel],[data-bulk],[data-close]');
 
   /* episode multi-select swallows row taps first */
   if(selSeason !== null){
-    const row = e.target.closest('.ep[data-ep]');
+    const row = e.target.closest('.eprow[data-ep]');
     if(row && Number(row.dataset.eps) === selSeason && (!t || t.dataset.toggle)){
       const id = Number(row.dataset.ep);
       if(picked.has(id)) picked.delete(id); else picked.add(id);
@@ -1982,9 +2552,10 @@ document.addEventListener('click', function(e){
     const id = route.arg, epId = Number(d.toggle);
     return markEpisode(id, epId, !watchedOf(id)[epId]);
   }
-  if(d.fold){
-    const k = Number(d.fold);
-    openSeasons[route.arg] = (openSeasons[route.arg] === k) ? -1 : k;
+  if(d.sopen){
+    openSeasons[route.arg] = Number(d.sopen);
+    picked.clear(); selSeason = null;
+    const sb = document.getElementById('bulkbar'); if(sb) sb.remove();
     return viewShow(route.arg);
   }
   if(d.sall){
@@ -2086,6 +2657,7 @@ document.addEventListener('input', function(e){
 
 /* top-bar buttons */
 document.getElementById('btnAdd').onclick = openAddSheet;
+document.getElementById('btnSettings').onclick = function(){ go('settings'); };
 document.getElementById('btnFind').onclick = function(){
   go('library');
   setTimeout(function(){
@@ -2145,4 +2717,4 @@ go(db.prefs.lastTab || 'home');
 
 </script>
 </body>
-</html>
+  </html> 
