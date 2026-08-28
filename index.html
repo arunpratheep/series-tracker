@@ -497,6 +497,27 @@ const BLANK = {
 let db = JSON.parse(JSON.stringify(BLANK));
 let saveTimer = null, saveFailed = false;
 
+/* Fills in fields added in later versions. Must run on EVERY path that
+   loads data — local boot and cloud sync alike — or records saved by an
+   older build silently lack newer fields. */
+function normalizePlatforms(data){
+  if(!data.platforms || !data.platforms.length){
+    data.platforms = DEFAULT_PLATFORMS.map(function(p,i){
+      return Object.assign({ active:true, order:i }, p);
+    });
+    return data;
+  }
+  data.platforms.forEach(function(p,i){
+    if(p.order == null) p.order = i;
+    if(p.active == null) p.active = true;
+    if(p.search == null){
+      const def = DEFAULT_PLATFORMS.find(x => x.id === p.id);
+      p.search = def ? def.search : '';
+    }
+  });
+  return data;
+}
+
 function readJSON(key){
   try { return JSON.parse(localStorage.getItem(key)) || null; } catch(e){ return null; }
 }
@@ -542,19 +563,7 @@ function readJSON(key){
       console.info('SPINE: migrated', Object.keys(db.shows).length, 'series from v2');
     }
   }
-  if(!db.platforms || !db.platforms.length){
-    db.platforms = DEFAULT_PLATFORMS.map(function(p,i){
-      return Object.assign({ active:true, order:i }, p);
-    });
-  }
-  db.platforms.forEach(function(p,i){
-    if(p.order == null) p.order = i;
-    if(p.active == null) p.active = true;
-    if(p.search == null){
-      const def = DEFAULT_PLATFORMS.find(x => x.id === p.id);
-      p.search = def ? def.search : '';
-    }
-  });
+  normalizePlatforms(db);
   db.version = 3;
   save();
 })();
@@ -707,6 +716,7 @@ function encodeForCloud(data){
 function decodeFromCloud(data){
   const out = Object.assign(JSON.parse(JSON.stringify(BLANK)), data || {});
   out.prefs = Object.assign({}, BLANK.prefs, out.prefs || {});
+  normalizePlatforms(out);
   out.shows = {};
   Object.keys((data && data.shows) || {}).forEach(function(id){
     const s = Object.assign({}, data.shows[id]);
