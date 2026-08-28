@@ -678,15 +678,17 @@ async function pushCloud(){
 }
 
 /* start a brand-new household, optionally seeded from this device's
-   pre-sharing data (offered only when hasLegacyData is true) */
+   pre-sharing data (offered only when hasLegacyData is true).
+   Order matters: membership must exist before the data doc is written,
+   because the security rule for the data doc reads the member list. */
 async function createHousehold(uid, email, seedData){
   const hid = newId();
   const data = Object.assign(JSON.parse(JSON.stringify(BLANK)), seedData || {});
   if(!data.platforms || !data.platforms.length){
     data.platforms = DEFAULT_PLATFORMS.map(function(p,i){ return Object.assign({ active:true, order:i }, p); });
   }
-  await fb.setDoc(householdRef(hid), data);
   await fb.setDoc(householdMetaRef(hid), { members: { [uid]: { email: email || '', joinedAt: Date.now() } } });
+  await fb.setDoc(householdRef(hid), data);
   await fb.setDoc(usersRef(uid), { householdId: hid });
   return hid;
 }
@@ -709,19 +711,33 @@ async function generateInvite(){
   return code;
 }
 
+function cloudErrorMessage(e, fallback){
+  const code = (e && e.code) || '';
+  if(code.indexOf('permission-denied') > -1)
+    return 'Blocked by your Firestore rules — publish the updated rules, then try again.';
+  if(code.indexOf('unavailable') > -1 || code.indexOf('network') > -1)
+    return "Can't reach the sync server — check your connection.";
+  return fallback;
+}
+
 async function handleCreateHousehold(){
   cloudBusy = true; viewSettings();
   try {
     let seed = null;
     if(hasLegacyData){
-      const legacy = await fb.getDoc(legacyRef(cloudUser.uid));
-      seed = legacy.exists() ? legacy.data() : null;
+      try {
+        const legacy = await fb.getDoc(legacyRef(cloudUser.uid));
+        seed = legacy.exists() ? legacy.data() : null;
+      } catch(e){ seed = null; }
     }
     const hid = await createHousehold(cloudUser.uid, cloudUser.email, seed);
     needsHouseholdSetup = false;
     await enterHousehold(hid);
-    toast(seed ? "Household created — what's already tracked here came with it" : 'Household created');
-  } catch(e){ console.error(e); toast("Couldn't create the household — try again."); }
+    toast(seed ? "Household created — what's already tracked came with it" : 'Household created');
+  } catch(e){
+    console.error('createHousehold failed', e);
+    toast(cloudErrorMessage(e, "Couldn't create the household — try again."));
+  }
   cloudBusy = false; rerender();
 }
 
@@ -735,7 +751,10 @@ async function handleJoinHousehold(){
     needsHouseholdSetup = false;
     await enterHousehold(hid);
     toast('Joined — syncing your shared library');
-  } catch(e){ toast(e.message || "Couldn't join with that code"); }
+  } catch(e){
+    console.error('joinHousehold failed', e);
+    toast(cloudErrorMessage(e, e.message || "Couldn't join with that code"));
+  }
   cloudBusy = false; rerender();
 }
 
@@ -2717,4 +2736,5 @@ go(db.prefs.lastTab || 'home');
 
 </script>
 </body>
-  </html> 
+</html>
+here 
