@@ -464,6 +464,9 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
    Nothing is deleted; v2 stays on disk as a fallback copy.
    ═══════════════════════════════════════════════════════════ */
 const K3 = 'spine-v3', K2 = 'spine-v2';
+/* Bumped on every change. Shown in Settings so you can tell at a glance
+   whether the version you're looking at is the one that was deployed. */
+const BUILD = 'b12 · tap-fix';
 
 /* {q} is replaced with the URL-encoded series title. On a phone these
    open the native app when it's installed, and the website otherwise.
@@ -2143,8 +2146,8 @@ function viewSettings(){
       '<button class="btn wide danger" id="btnWipe" style="margin-top:9px">' + ic('trash','sm') + 'Erase everything</button>' +
     '</div>' +
 
-    '<p class="h-sub" style="margin-top:30px;text-align:center">Series data from TVmaze. ' +
-      'SPINE v3 · ' + allShows().length + ' series tracked</p>' +
+    '<p class="h-sub" style="margin-top:30px;text-align:center">Series data from TVmaze.<br>' +
+      'SPINE ' + BUILD + ' · ' + allShows().length + ' series tracked</p>' +
   '</div>';
 
   document.getElementById('defSort').onchange = function(){
