@@ -637,8 +637,7 @@ async function enterHousehold(hid){
   ]);
   if(dataSnap.exists()){
     applyingRemote = true;
-    db = Object.assign(JSON.parse(JSON.stringify(BLANK)), dataSnap.data());
-    db.prefs = Object.assign({}, BLANK.prefs, db.prefs || {});
+    db = decodeFromCloud(dataSnap.data());
     localStorage.setItem(K3, JSON.stringify(db));
     applyingRemote = false;
   }
@@ -651,8 +650,7 @@ function startHouseholdListeners(hid){
   unsubSnap = fb.onSnapshot(householdRef(hid), function(snap){
     if(!snap.exists() || snap.metadata.hasPendingWrites) return;   /* ignore the echo of our own write */
     applyingRemote = true;
-    db = Object.assign(JSON.parse(JSON.stringify(BLANK)), snap.data());
-    db.prefs = Object.assign({}, BLANK.prefs, db.prefs || {});
+    db = decodeFromCloud(snap.data());
     localStorage.setItem(K3, JSON.stringify(db));
     applyingRemote = false;
     rerender();
@@ -671,10 +669,47 @@ function detachCloud(){
   if(unsubMeta){ unsubMeta(); unsubMeta = null; }
 }
 
+/* Firestore forbids arrays-inside-arrays, and our episode lists are
+   exactly that ([[id,season,number,date,runtime,name], ...]), so they
+   travel as a JSON string and are rebuilt on the way back in. */
+function encodeForCloud(data){
+  const safe = JSON.parse(JSON.stringify(data));   /* also drops any undefined */
+  const out = {
+    version: safe.version || 3,
+    platforms: safe.platforms || [],
+    prefs: safe.prefs || {},
+    watched: safe.watched || {},
+    shows: {}
+  };
+  Object.keys(safe.shows || {}).forEach(function(id){
+    const s = safe.shows[id];
+    s.eps = JSON.stringify(s.eps || []);
+    out.shows[id] = s;
+  });
+  return out;
+}
+function decodeFromCloud(data){
+  const out = Object.assign(JSON.parse(JSON.stringify(BLANK)), data || {});
+  out.prefs = Object.assign({}, BLANK.prefs, out.prefs || {});
+  out.shows = {};
+  Object.keys((data && data.shows) || {}).forEach(function(id){
+    const s = Object.assign({}, data.shows[id]);
+    if(typeof s.eps === 'string'){
+      try { s.eps = JSON.parse(s.eps); } catch(e){ s.eps = []; }
+    }
+    if(!Array.isArray(s.eps)) s.eps = [];
+    out.shows[id] = s;
+  });
+  return out;
+}
+
 async function pushCloud(){
   if(!fb || !cloudUser || !householdId) return;
-  try { await fb.setDoc(householdRef(householdId), db); }
-  catch(e){ console.error('cloud save failed', e); toast("Couldn't sync — will retry on your next change"); }
+  try { await fb.setDoc(householdRef(householdId), encodeForCloud(db)); }
+  catch(e){
+    console.error('cloud save failed', e);
+    toast(cloudErrorMessage(e, "Couldn't sync — will retry on your next change"));
+  }
 }
 
 /* start a brand-new household, optionally seeded from this device's
@@ -688,7 +723,7 @@ async function createHousehold(uid, email, seedData){
     data.platforms = DEFAULT_PLATFORMS.map(function(p,i){ return Object.assign({ active:true, order:i }, p); });
   }
   await fb.setDoc(householdMetaRef(hid), { members: { [uid]: { email: email || '', joinedAt: Date.now() } } });
-  await fb.setDoc(householdRef(hid), data);
+  await fb.setDoc(householdRef(hid), encodeForCloud(data));
   await fb.setDoc(usersRef(uid), { householdId: hid });
   return hid;
 }
@@ -723,17 +758,37 @@ function cloudErrorMessage(e, fallback){
 async function handleCreateHousehold(){
   cloudBusy = true; viewSettings();
   try {
+    /* Seed the new household from whatever this device already has.
+       A brand-new household must never blank out an existing library. */
     let seed = null;
+    const localCount = Object.keys(db.shows || {}).length;
+    if(localCount) seed = JSON.parse(JSON.stringify(db));
+
     if(hasLegacyData){
       try {
         const legacy = await fb.getDoc(legacyRef(cloudUser.uid));
-        seed = legacy.exists() ? legacy.data() : null;
-      } catch(e){ seed = null; }
+        const ld = legacy.exists() ? decodeFromCloud(legacy.data()) : null;
+        if(ld){
+          if(!seed) seed = ld;
+          else {
+            /* merge: keep everything from both, local wins on conflicts */
+            Object.keys(ld.shows || {}).forEach(function(id){
+              if(!seed.shows[id]) seed.shows[id] = ld.shows[id];
+            });
+            Object.keys(ld.watched || {}).forEach(function(sid){
+              seed.watched[sid] = Object.assign({}, ld.watched[sid], seed.watched[sid] || {});
+            });
+          }
+        }
+      } catch(e){ /* legacy unreadable — the local seed still stands */ }
     }
+    const seededCount = seed ? Object.keys(seed.shows || {}).length : 0;
     const hid = await createHousehold(cloudUser.uid, cloudUser.email, seed);
     needsHouseholdSetup = false;
     await enterHousehold(hid);
-    toast(seed ? "Household created — what's already tracked came with it" : 'Household created');
+    toast(seededCount
+      ? 'Household created — ' + seededCount + ' series came with it'
+      : 'Household created');
   } catch(e){
     console.error('createHousehold failed', e);
     toast(cloudErrorMessage(e, "Couldn't create the household — try again."));
@@ -2737,4 +2792,3 @@ go(db.prefs.lastTab || 'home');
 </script>
 </body>
 </html>
-here 
