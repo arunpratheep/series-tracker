@@ -979,6 +979,26 @@ function watchLink(showId){
 function openLink(url){
   const win = window.open(url, '_blank', 'noopener,noreferrer');
   if(!win) toast('Your browser blocked the pop-up — allow pop-ups for this site.');
+  return !!win;
+}
+
+/* Some apps (Netflix's, notably) claim the /search path but ignore the
+   query string, so you land on an empty search box. Copying the title
+   first turns that into a single paste. Exact links skip this. */
+function openWatch(showId){
+  const L = watchLink(showId);
+  if(!L){ toast('Set a platform for this series first'); return; }
+  const rec = db.shows[showId];
+  if(L.exact){ openLink(L.url); return; }
+  const done = function(copied){
+    openLink(L.url);
+    toast(copied
+      ? 'Opening ' + (L.platform ? L.platform.name : 'site') + ' — title copied, paste it if the search is empty'
+      : 'Opening ' + (L.platform ? L.platform.name : 'site'));
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(rec.name).then(function(){ done(true); }, function(){ done(false); });
+  } else done(false);
 }
 
 /* ═══════════ ranking for Watch Next ═══════════ */
@@ -1103,6 +1123,25 @@ function toast(msg, undoFn){
   toastTimer = setTimeout(hideToast, undoFn ? 5200 : 3000);
 }
 function hideToast(){ toastEl.classList.remove('on'); }
+
+/* On mobile, tapping a button that sits below a focused input makes the
+   keyboard collapse first: the layout reflows and the click lands on empty
+   space. Firing on pointerdown (and suppressing the default blur) makes
+   these buttons work on the first tap. */
+function bindTap(el, fn){
+  if(!el) return;
+  let fired = false;
+  el.addEventListener('pointerdown', function(e){
+    e.preventDefault();
+    fired = true;
+    fn(e);
+    setTimeout(function(){ fired = false; }, 500);
+  });
+  el.addEventListener('click', function(e){
+    if(fired) return;      /* browsers without pointer events still work */
+    fn(e);
+  });
+}
 
 /* ═══════════ bottom sheet ═══════════ */
 const sheetEl = document.getElementById('sheet');
@@ -1563,7 +1602,8 @@ function viewShow(id){
       ic('play','sm') + 'Watch on ' + esc(L.platform ? L.platform.name : 'site') + '</button>' +
       '<p class="h-sub" style="margin-top:7px;font-size:12px">' +
       (L.exact ? 'Opens your saved link.'
-               : 'Searches ' + esc(L.platform.name) + ' for this title — set an exact link from the ⋮ menu.') +
+               : 'Searches ' + esc(L.platform.name) + ' and copies the title. Some apps open an empty ' +
+                 'search box — paste it, or save an exact link from the ⋮ menu.') +
       '</p>';
   }
 
@@ -2110,7 +2150,7 @@ function viewSettings(){
   document.getElementById('defSort').onchange = function(){
     db.prefs.sort = this.value; libSort = this.value; save(); toast('Default sort updated');
   };
-  document.getElementById('npAdd').onclick = addPlatform;
+  bindTap(document.getElementById('npAdd'), addPlatform);
   document.getElementById('npName').addEventListener('keydown', function(e){
     if(e.key === 'Enter') addPlatform();
   });
@@ -2137,8 +2177,7 @@ function viewSettings(){
   const so = document.getElementById('btnSignOut');
   if(so) so.onclick = doSignOut;
 
-  const jhh = document.getElementById('btnJoinHH');
-  if(jhh) jhh.onclick = handleJoinHousehold;
+  bindTap(document.getElementById('btnJoinHH'), handleJoinHousehold);
   const chh = document.getElementById('btnCreateHH');
   if(chh) chh.onclick = handleCreateHousehold;
 
@@ -2161,8 +2200,8 @@ function viewSettings(){
       if(!email || !pw){ toast('Enter an email and password'); return; }
       action(email, pw);
     };
-    si.onclick = () => run(doSignIn);
-    su.onclick = () => run(doSignUp);
+    bindTap(si, () => run(doSignIn));
+    bindTap(su, () => run(doSignUp));
     document.getElementById('authPw').addEventListener('keydown', function(e){
       if(e.key === 'Enter') run(doSignIn);
     });
@@ -2476,11 +2515,11 @@ function openHoldSheet(id){
     '<textarea class="field" id="holdWhy" placeholder="Season got slow, waiting for the next batch…"></textarea>' +
     '<button class="btn primary wide" id="holdGo" style="margin-top:14px">Put on hold</button>',
     function(){
-      document.getElementById('holdGo').onclick = function(){
+      bindTap(document.getElementById('holdGo'), function(){
         rec.hold = { since: Date.now(), reason: document.getElementById('holdWhy').value.trim() };
         rec.touched = Date.now(); save(); closeSheet(); rerender();
         toast(rec.name + ' put on hold', function(){ rec.hold = null; save(); rerender(); });
-      };
+      });
     });
 }
 function openNoteSheet(id){
@@ -2489,10 +2528,10 @@ function openNoteSheet(id){
     '<textarea class="field" id="noteBox" placeholder="Watching this with family…">' + esc(rec.note || '') + '</textarea>' +
     '<button class="btn primary wide" id="noteGo" style="margin-top:14px">Save note</button>',
     function(){
-      document.getElementById('noteGo').onclick = function(){
+      bindTap(document.getElementById('noteGo'), function(){
         rec.note = document.getElementById('noteBox').value.trim();
         save(); closeSheet(); rerender(); toast('Note saved');
-      };
+      });
     });
 }
 function openLinkSheet(id){
@@ -2503,22 +2542,25 @@ function openLinkSheet(id){
       ' page for this series. One tap then goes straight there instead of to a search.</p>' +
     '<label class="lbl" for="linkBox">Link</label>' +
     '<input class="field" id="linkBox" type="url" inputmode="url" autocomplete="off" ' +
-      'placeholder="https://…" value="' + esc(rec.link || '') + '">' +
+      'enterkeyhint="done" placeholder="https://…" value="' + esc(rec.link || '') + '">' +
     '<button class="btn primary wide" id="linkGo" style="margin-top:14px">Save link</button>' +
     (rec.link ? '<button class="btn wide" id="linkClear" style="margin-top:9px">Remove link</button>' : ''),
     function(){
-      document.getElementById('linkGo').onclick = function(){
+      const doSave = function(){
         const v = document.getElementById('linkBox').value.trim();
         if(v && !/^https?:\/\//i.test(v)){ toast('That needs to start with https://'); return; }
         if(v) rec.link = v; else delete rec.link;
         rec.touched = Date.now(); save(); closeSheet(); rerender();
         toast(v ? 'Link saved' : 'Link removed');
       };
-      const c = document.getElementById('linkClear');
-      if(c) c.onclick = function(){
+      bindTap(document.getElementById('linkGo'), doSave);
+      document.getElementById('linkBox').addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){ e.preventDefault(); doSave(); }
+      });
+      bindTap(document.getElementById('linkClear'), function(){
         delete rec.link; rec.touched = Date.now(); save(); closeSheet(); rerender();
         toast('Link removed');
-      };
+      });
     });
 }
 
@@ -2665,9 +2707,8 @@ document.addEventListener('click', function(e){
   if(d.note)      { return openNoteSheet(d.note); }
   if(d.setlink)   { closeSheet(); return openLinkSheet(d.setlink); }
   if(d.watch){
-    const lk = watchLink(d.watch);
     if(d.close) closeSheet();
-    if(lk) openLink(lk.url); else toast('Set a platform for this series first');
+    openWatch(d.watch);
     return;
   }
   if(d.platsheet) { return openPlatformSheet(d.platsheet); }
