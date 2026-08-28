@@ -1,0 +1,2720 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0D1220">
+<title>SPINE — series tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============ tokens ============ */
+[data-theme="dark"]{
+  --bg:#0D1220; --card:#161E36; --card2:#1E2846; --line:#2C3760;
+  --text:#E9ECF7; --muted:#8992B4; --accent:#FFB454; --accent-ink:#0D1220;
+  --shadow:0 12px 32px rgba(0,0,0,.45);
+}
+[data-theme="light"]{
+  --bg:#F4F5FA; --card:#FFFFFF; --card2:#EDEFF7; --line:#DFE3EF;
+  --text:#141A2E; --muted:#666E8C; --accent:#C97A14; --accent-ink:#FFFFFF;
+  --shadow:0 8px 24px rgba(20,26,46,.10);
+}
+:root{
+  --new:#5B8DEF; --watch:#FFB454; --hold:#FF8A5B; --done:#4ECB8E;
+  --nav-h:64px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased; font-size:15px; line-height:1.5;
+  padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 28px);
+  transition:background .2s,color .2s;
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+button{background:none;border:none;cursor:pointer;text-align:left;padding:0}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,
+a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+h1,h2,h3,h4,p,ul,ol{margin:0;padding:0}
+ul,ol{list-style:none}
+img{display:block}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ============ chrome ============ */
+.topbar{
+  position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:10px;
+  padding:12px 16px calc(12px) 16px; padding-top:calc(12px + env(safe-area-inset-top));
+  background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:center;gap:9px;font-family:'Bricolage Grotesque',sans-serif;
+  font-weight:800;letter-spacing:.15em;font-size:14px;flex:none}
+.brandticks{display:flex;gap:2px;align-items:flex-end;height:13px}
+.brandticks i{width:3px;border-radius:1px;background:var(--accent)}
+.brandticks i:nth-child(1){height:13px}.brandticks i:nth-child(2){height:8px}
+.brandticks i:nth-child(3){height:13px;background:var(--line)}.brandticks i:nth-child(4){height:6px;background:var(--line)}
+.topbar .spacer{flex:1}
+.iconbtn{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;
+  border-radius:12px;color:var(--muted);transition:.15s}
+.iconbtn:hover,.iconbtn:active{color:var(--accent);background:var(--card)}
+.iconbtn.on{color:var(--accent-ink);background:var(--accent)}
+svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+svg.ic.sm{width:16px;height:16px}
+
+main{max-width:100%;padding:0 16px 40px}
+.view{padding-top:18px;padding-bottom:20px}
+.h-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.h-title{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;letter-spacing:-.025em;
+  font-size:clamp(26px,7vw,34px);line-height:1.06}
+.h-sub{color:var(--muted);font-size:14px;margin-top:8px}
+.sect{margin-top:30px}
+.sect-head{display:flex;align-items:baseline;gap:10px;margin-bottom:13px}
+.sect-title{font-family:'Bricolage Grotesque',sans-serif;font-size:12px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--muted);font-weight:600}
+.sect-more{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent)}
+
+/* ============ bottom nav ============ */
+.nav{
+  position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;
+  background:var(--bg);backdrop-filter:blur(16px);
+  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);
+  height:calc(var(--nav-h) + env(safe-area-inset-bottom));
+}
+.nav button{flex:1;height:var(--nav-h);display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:4px;color:var(--muted);transition:color .15s}
+.nav button span{font-size:10px;letter-spacing:.02em}
+.nav button.on{color:var(--accent)}
+.nav button.on svg{stroke-width:2.1}
+
+/* ============ series card ============ */
+.scard{display:flex;gap:13px;padding:12px;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;margin-bottom:11px;position:relative;transition:border-color .16s,transform .16s}
+.scard:active{transform:scale(.988)}
+.scard.pinned{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+.sc-poster{width:74px;height:111px;flex:none;border-radius:10px;object-fit:cover;background:var(--card2)}
+.sc-poster.ph{display:flex;align-items:center;justify-content:center;
+  font-family:'Bricolage Grotesque',sans-serif;font-size:26px;color:var(--line)}
+.sc-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.sc-top{display:flex;align-items:flex-start;gap:8px}
+.sc-name{font-size:15.5px;font-weight:600;line-height:1.25;flex:1;min-width:0;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sc-star{flex:none;width:32px;height:32px;margin:-5px -5px 0 0;display:flex;align-items:center;
+  justify-content:center;color:var(--muted);border-radius:9px}
+.sc-star.on{color:var(--accent)}
+.sc-star.on svg{fill:var(--accent)}
+.sc-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.sc-next{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--text)}
+.sc-next b{color:var(--accent);font-weight:500}
+.sc-eptitle{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-foot{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:4px}
+.sc-actions{display:flex;gap:7px;margin-top:8px}
+
+.pbar{flex:1;height:5px;background:var(--line);border-radius:3px;overflow:hidden}
+.pbar i{display:block;height:100%;background:var(--accent);border-radius:3px;
+  transition:width .45s cubic-bezier(.4,0,.2,1)}
+.pbar.done i{background:var(--done)}
+.pct{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);flex:none;min-width:34px;text-align:right}
+
+.ott{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:500;
+  padding:3px 9px;border-radius:20px;background:var(--card2);white-space:nowrap}
+.ott i{width:7px;height:7px;border-radius:50%;flex:none}
+.stat-dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+.pill{display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:20px;
+  border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+
+/* ============ buttons ============ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;
+  padding:0 14px;border-radius:11px;border:1px solid var(--line);font-size:13.5px;font-weight:500;
+  color:var(--text);transition:.15s;white-space:nowrap}
+.btn:active{transform:scale(.96)}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.sm{min-height:32px;padding:0 11px;font-size:12.5px;border-radius:9px}
+.btn.wide{width:100%}
+.btn.danger{color:#FF8F8F;border-color:color-mix(in srgb,#FF8F8F 40%,var(--line))}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.btn.icon{width:38px;padding:0;flex:none}
+
+/* ============ stats ============ */
+.statgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.statcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.statcard b{display:block;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;
+  font-size:26px;letter-spacing:-.02em;line-height:1.1}
+.statcard span{display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:5px}
+.statcard.accent b{color:var(--accent)}
+
+.summary-strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin:0 -16px;padding-left:16px;padding-right:16px;scrollbar-width:none}
+.summary-strip::-webkit-scrollbar{display:none}
+.sumbox{flex:none;min-width:88px;background:var(--card);border:1px solid var(--line);
+  border-radius:13px;padding:11px 13px}
+.sumbox b{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:21px;display:block;line-height:1.1}
+.sumbox span{font-size:10.5px;color:var(--muted);display:flex;align-items:center;gap:5px;margin-top:4px}
+
+/* bar chart for stats */
+.bars{display:flex;flex-direction:column;gap:9px}
+.barrow{display:flex;align-items:center;gap:10px;font-size:13px}
+.barrow .lbl{flex:none;width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.barrow .track{flex:1;height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.barrow .track i{display:block;height:100%;border-radius:4px;background:var(--accent)}
+.barrow .val{flex:none;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--muted);min-width:26px;text-align:right}
+
+/* ============ chips / filters ============ */
+.chiprow{display:flex;gap:7px;overflow-x:auto;padding:2px 16px 2px 16px;margin:0 -16px 14px;scrollbar-width:none}
+.chiprow::-webkit-scrollbar{display:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:0 13px;
+  border-radius:18px;border:1px solid var(--line);font-size:13px;color:var(--muted);transition:.15s}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.chip .n{font-family:'IBM Plex Mono',monospace;font-size:11px;opacity:.75}
+
+/* ============ episodes ============ */
+.season{border:1px solid var(--line);border-radius:14px;margin-bottom:10px;overflow:hidden;background:var(--card)}
+.season-head{display:flex;align-items:center;gap:11px;padding:13px;width:100%;min-height:56px}
+.season-head h3{font-size:15px;font-weight:600;flex:none}
+.season-head .pbar{max-width:78px}
+.caret{color:var(--muted);transition:transform .2s;flex:none;margin-left:auto}
+.season.open .caret{transform:rotate(180deg)}
+.season-body{display:none;padding:0 13px 13px}
+.season.open .season-body{display:block}
+.season-tools{display:flex;gap:7px;flex-wrap:wrap;padding:0 0 11px;border-bottom:1px solid var(--line);margin-bottom:6px}
+
+.ep{display:flex;gap:11px;padding:10px 4px;align-items:flex-start;border-radius:10px;transition:background .15s}
+.ep + .ep{border-top:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+.ep.on .ep-name{color:var(--muted)}
+.epchk{width:26px;height:26px;flex:none;margin-top:1px;border-radius:8px;border:1.6px solid var(--line);
+  display:flex;align-items:center;justify-content:center;transition:.16s}
+.epchk svg{width:14px;height:14px;stroke:transparent;stroke-width:2.4}
+.ep.on .epchk{background:var(--accent);border-color:var(--accent)}
+.ep.on .epchk svg{stroke:var(--accent-ink)}
+.ep.picked .epchk{background:var(--accent);border-color:var(--accent);border-radius:50%}
+.ep.picked .epchk svg{stroke:var(--accent-ink)}
+.ep.picked{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.ep-main{flex:1;min-width:0}
+.ep-line{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.mono{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--muted)}
+.ep-name{font-size:14px;font-weight:500;line-height:1.35}
+.ep-sub{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);margin-top:4px}
+.ep-tohere{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.04em;
+  padding:5px 9px;border:1px solid var(--line);border-radius:7px;color:var(--muted);margin-top:6px;display:inline-block}
+
+/* stepper */
+.stepper{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
+  border-radius:14px;padding:10px 12px}
+.stepper button{width:42px;height:42px;flex:none;border-radius:11px;border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:600;transition:.15s}
+.stepper button:active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.stepper .mid{flex:1;text-align:center;min-width:0}
+.stepper .mid b{display:block;font-family:'IBM Plex Mono',monospace;font-size:15px}
+.stepper .mid span{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ============ sheet ============ */
+.scrim{position:fixed;inset:0;z-index:60;background:rgba(5,8,18,.6);opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:61;background:var(--bg);
+  border-top:1px solid var(--line);border-radius:22px 22px 0 0;box-shadow:var(--shadow);
+  transform:translateY(102%);transition:transform .26s cubic-bezier(.32,.72,0,1);
+  max-height:86vh;overflow-y:auto;padding:0 16px calc(20px + env(safe-area-inset-bottom))}
+.sheet.on{transform:translateY(0)}
+.sheet-grab{width:38px;height:4px;border-radius:2px;background:var(--line);margin:10px auto 4px}
+.sheet h2{font-family:'Bricolage Grotesque',sans-serif;font-size:19px;font-weight:800;
+  letter-spacing:-.02em;padding:10px 0 14px}
+.sheet-item{display:flex;align-items:center;gap:13px;width:100%;min-height:52px;padding:6px 2px;
+  font-size:15px;border-bottom:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+.sheet-item:last-child{border-bottom:none}
+.sheet-item .ic{color:var(--muted);flex:none}
+.sheet-item.danger{color:#FF8F8F}
+.sheet-item .chk{margin-left:auto;color:var(--accent);flex:none}
+.sheet-group{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--muted);padding:16px 0 8px}
+
+/* ============ toast ============ */
+.toast{position:fixed;left:16px;right:16px;bottom:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom));
+  z-index:70;background:var(--card2);border:1px solid var(--line);border-radius:14px;
+  box-shadow:var(--shadow);padding:13px 15px;display:flex;align-items:center;gap:12px;
+  transform:translateY(140%);opacity:0;transition:transform .28s cubic-bezier(.32,.72,0,1),opacity .2s}
+.toast.on{transform:translateY(0);opacity:1}
+.toast span{flex:1;font-size:14px;min-width:0}
+.toast button{font-weight:600;color:var(--accent);font-size:13.5px;padding:6px 4px;flex:none}
+
+/* ============ inputs ============ */
+.field{width:100%;min-height:44px;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:10px 13px;color:var(--text);transition:border-color .15s}
+.field::placeholder{color:var(--muted)}
+.field:focus{outline:none;border-color:var(--accent)}
+textarea.field{min-height:88px;resize:vertical;line-height:1.55}
+select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:38px}
+.lbl{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);display:block;margin:16px 0 7px}
+
+/* ============ empty / skeleton ============ */
+.empty{text-align:center;padding:44px 20px;color:var(--muted)}
+.empty .big{font-size:34px;margin-bottom:12px;opacity:.55}
+.empty h3{font-size:16.5px;font-weight:600;color:var(--text);margin-bottom:7px}
+.empty p{font-size:14px;line-height:1.6;max-width:32ch;margin:0 auto}
+.empty .btn{margin-top:18px}
+
+@keyframes shim{0%{background-position:-380px 0}100%{background-position:380px 0}}
+.skel{background:linear-gradient(90deg,var(--card) 25%,var(--card2) 50%,var(--card) 75%);
+  background-size:760px 100%;animation:shim 1.35s infinite linear;border-radius:10px}
+.skel-card{display:flex;gap:13px;padding:12px;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;margin-bottom:11px}
+.skel-line{height:11px;border-radius:6px;margin-bottom:9px}
+
+/* ============ detail ============ */
+.hero{position:relative;margin:0 -16px;padding:0 16px 18px}
+.hero-bg{position:absolute;inset:0 0 auto;height:210px;overflow:hidden;z-index:0}
+.hero-bg img{width:100%;height:100%;object-fit:cover;filter:blur(28px) saturate(1.5);opacity:.32;transform:scale(1.25)}
+.hero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,transparent,var(--bg) 88%)}
+.hero-in{position:relative;z-index:1;display:flex;gap:15px;padding-top:18px}
+.hero-poster{width:104px;height:156px;flex:none;border-radius:13px;object-fit:cover;
+  background:var(--card2);box-shadow:var(--shadow)}
+.hero-poster.ph{display:flex;align-items:center;justify-content:center;
+  font-family:'Bricolage Grotesque',sans-serif;font-size:34px;color:var(--line)}
+.hero-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.hero-title{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;letter-spacing:-.025em;
+  font-size:clamp(21px,5.6vw,27px);line-height:1.1}
+.tagrow{display:flex;gap:6px;flex-wrap:wrap}
+.summary{font-size:14px;line-height:1.62;color:var(--muted);margin-top:14px}
+.summary.clip{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.readmore{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);margin-top:6px}
+.kv{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:13px;overflow:hidden;margin-top:16px}
+.kv div{background:var(--card);padding:11px 13px}
+.kv dt{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--muted)}
+.kv dd{font-size:14px;font-weight:500;margin-top:3px}
+
+/* ============ platform manager rows ============ */
+.prow{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);
+  border:1px solid var(--line);border-radius:13px;margin-bottom:8px}
+.prow.off{opacity:.48}
+.prow input[type=text]{flex:1;min-width:0;background:transparent;border:none;font-size:14.5px;
+  font-weight:500;padding:6px 0;border-bottom:1px solid transparent}
+.prow input[type=text]:focus{outline:none;border-bottom-color:var(--accent)}
+.prow input[type=color]{width:32px;height:32px;flex:none;padding:0;border:1px solid var(--line);
+  border-radius:9px;background:none;cursor:pointer}
+.prow .mv{width:30px;height:30px;flex:none;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);border-radius:8px}
+.switch{width:42px;height:25px;flex:none;border-radius:14px;background:var(--line);position:relative;transition:.18s}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:19px;height:19px;border-radius:50%;
+  background:var(--muted);transition:.18s}
+.switch.on{background:color-mix(in srgb,var(--accent) 45%,transparent)}
+.switch.on::after{transform:translateX(17px);background:var(--accent)}
+
+/* ============ desktop ============ */
+/* ---- season tabs: one season at a time, no endless scroll ---- */
+.stabs{display:flex;gap:7px;overflow-x:auto;padding:2px 16px 10px;margin:0 -16px;scrollbar-width:none}
+.stabs::-webkit-scrollbar{display:none}
+.stab{flex:none;min-width:58px;min-height:58px;padding:7px 12px;border-radius:14px;border:1px solid var(--line);
+  background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:.15s}
+.stab b{font-size:15px;font-weight:600;line-height:1}
+.stab i{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);font-style:normal}
+.stab.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.stab.on i{color:var(--accent-ink);opacity:.85}
+.stab.full{border-color:color-mix(in srgb,var(--done) 55%,var(--line))}
+.stab.full i{color:var(--done)}
+.stab.on.full{background:var(--done);border-color:var(--done);color:#08210F}
+.stab.on.full i{color:#08210F}
+
+.spanel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.spanel-top{display:flex;align-items:center;gap:11px;margin-bottom:12px}
+.spanel-top h3{font-family:'Bricolage Grotesque',sans-serif;font-size:19px;font-weight:600;flex:1;letter-spacing:-.01em}
+.spanel-tools{display:flex;gap:7px;flex-wrap:wrap}
+
+/* the next-up episode, hoisted out and made unmissable */
+.nextcard{background:color-mix(in srgb,var(--accent) 11%,var(--card));
+  border:1.5px solid var(--accent);border-radius:16px;padding:14px;margin-bottom:12px}
+.nextcard h4{font-size:16.5px;font-weight:600;line-height:1.3;margin-bottom:5px}
+.nextcard .meta{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--muted);margin-bottom:12px}
+.nextcard .row{display:flex;gap:8px}
+.nextcard .row .btn{flex:1}
+
+/* roomier episode rows — the whole row is the tap target */
+.eprow{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;padding:9px 10px;
+  border-radius:12px;transition:background .15s;text-align:left}
+.eprow + .eprow{border-top:1px solid color-mix(in srgb,var(--line) 45%,transparent)}
+.eprow:active{background:var(--card2)}
+.eprow.on .eptext b{color:var(--muted);font-weight:500}
+.eprow.next{background:color-mix(in srgb,var(--accent) 13%,transparent);
+  box-shadow:inset 0 0 0 1.5px var(--accent)}
+.eprow.picked{background:color-mix(in srgb,var(--accent) 16%,transparent);
+  box-shadow:inset 0 0 0 1.5px var(--accent)}
+.epbox{width:28px;height:28px;flex:none;border-radius:9px;border:1.7px solid var(--line);
+  display:flex;align-items:center;justify-content:center;transition:.16s}
+.epbox svg{width:15px;height:15px;fill:none;stroke:transparent;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.eprow.on .epbox{background:var(--accent);border-color:var(--accent)}
+.eprow.on .epbox svg{stroke:var(--accent-ink)}
+.eprow.picked .epbox{background:var(--accent);border-color:var(--accent);border-radius:50%}
+.eprow.picked .epbox svg{stroke:var(--accent-ink)}
+.eptext{flex:1;min-width:0}
+.eptext b{display:block;font-size:14.5px;font-weight:600;line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.eptext span{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);margin-top:3px}
+.uphere{width:42px;height:42px;flex:none;border-radius:11px;border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;color:var(--muted);transition:.15s}
+.uphere:active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+/* ---- stats extras ---- */
+.streak{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;padding:16px;margin-bottom:11px}
+.streak .flame{font-size:34px;line-height:1;flex:none}
+.streak b{display:block;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:27px;line-height:1.1}
+.streak span{display:block;font-size:12.5px;color:var(--muted);margin-top:3px}
+.spark{display:flex;align-items:flex-end;gap:3px;height:78px;padding:12px 0 0}
+.spark div{flex:1;background:var(--line);border-radius:3px 3px 0 0;min-height:3px;transition:height .3s}
+.spark div.hot{background:var(--accent)}
+.sparkx{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;
+  font-size:9.5px;color:var(--muted);margin-top:6px}
+.funfact{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;
+  font-size:14px;line-height:1.6;margin-bottom:9px;display:flex;gap:11px;align-items:flex-start}
+.funfact .em{font-size:22px;line-height:1.2;flex:none}
+
+/* ---- discover ---- */
+.recwrap{display:flex;gap:13px;padding:13px;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;margin-bottom:11px}
+.recposter{width:70px;height:105px;flex:none;border-radius:10px;object-fit:cover;background:var(--card2)}
+.recposter.ph{display:flex;align-items:center;justify-content:center;
+  font-family:'Bricolage Grotesque',sans-serif;font-size:24px;color:var(--line)}
+.recbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.recbody h4{font-size:15px;font-weight:600;line-height:1.25}
+.recwhy{font-size:12px;color:var(--accent);line-height:1.4}
+.recsum{font-size:12.5px;color:var(--muted);line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+@media (min-width:900px){
+  :root{--nav-h:0px}
+  body{padding-bottom:0;display:grid;grid-template-columns:236px 1fr}
+  .topbar{grid-column:2;border-left:1px solid var(--line)}
+  .nav{position:sticky;top:0;left:0;right:auto;bottom:auto;grid-row:1/3;grid-column:1;
+    height:100vh!important;padding-bottom:22px;flex-direction:column;border-top:none;padding:22px 12px;gap:3px;align-items:stretch}
+  .nav .navbrand{display:flex!important;align-items:center;gap:9px;padding:6px 12px 26px;
+    font-family:'Bricolage Grotesque',sans-serif;font-weight:800;letter-spacing:.15em;font-size:14px}
+  .nav button{flex:none;height:46px;flex-direction:row;justify-content:flex-start;gap:13px;
+    padding:0 14px;border-radius:11px}
+  .nav button span{font-size:14px}
+  .nav button.on{background:var(--card);color:var(--accent)}
+  main{grid-column:2;border-left:1px solid var(--line);padding:0 34px 60px;min-height:100vh}
+  .view{max-width:1080px;padding-top:26px}
+  .topbar .brand{display:none}
+  .statgrid{grid-template-columns:repeat(4,1fr)}
+  .cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:11px}
+  .cardgrid .scard{margin-bottom:0}
+  .sheet{left:50%;right:auto;bottom:auto;top:50%;width:440px;max-width:calc(100vw - 40px);
+    transform:translate(-50%,-46%) scale(.97);border-radius:20px;border:1px solid var(--line);
+    opacity:0;transition:transform .2s,opacity .18s;max-height:78vh;padding-bottom:20px}
+  .sheet.on{transform:translate(-50%,-50%) scale(1);opacity:1}
+  .sheet-grab{display:none}
+  .toast{left:auto;right:26px;bottom:26px;width:360px}
+  .hero{margin:0;padding:0 0 20px}
+  .hero-poster{width:150px;height:225px}
+  .kv{grid-template-columns:repeat(4,1fr)}
+  .chiprow{margin:0 0 16px;padding:2px 0}
+  .summary-strip{margin:0;padding:0 0 4px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav" aria-label="Main">
+  <div class="navbrand" style="display:none">
+    <span class="brandticks"><i></i><i></i><i></i><i></i></span>SPINE
+  </div>
+</nav>
+
+<header class="topbar">
+  <span class="brand"><span class="brandticks"><i></i><i></i><i></i><i></i></span>SPINE</span>
+  <span class="spacer"></span>
+  <button class="iconbtn" id="btnFind" aria-label="Search my series">
+    <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+  </button>
+  <button class="iconbtn" id="btnAdd" aria-label="Add a series">
+    <svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+  <button class="iconbtn" id="btnSettings" aria-label="Settings">
+    <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><path d="M12 2.8v2.6M12 18.6v2.6M21.2 12h-2.6M5.4 12H2.8M18.6 5.4l-1.9 1.9M7.3 16.7l-1.9 1.9M18.6 18.6l-1.9-1.9M7.3 7.3 5.4 5.4"/></svg>
+  </button>
+</header>
+
+<main id="main"></main>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   SPINE v3 — data layer + migration
+   Reads the v2 store ('spine-v2') and upgrades it in place.
+   Nothing is deleted; v2 stays on disk as a fallback copy.
+   ═══════════════════════════════════════════════════════════ */
+const K3 = 'spine-v3', K2 = 'spine-v2';
+
+const DEFAULT_PLATFORMS = [
+  { id:'netflix',    name:'Netflix',            color:'#E50914' },
+  { id:'prime',      name:'Prime Video',        color:'#00A8E1' },
+  { id:'jiohotstar', name:'JioHotstar',         color:'#1A73E8' },
+  { id:'sonyliv',    name:'SonyLIV',            color:'#E8543F' },
+  { id:'zee5',       name:'ZEE5',               color:'#8230C6' },
+  { id:'appletv',    name:'Apple TV+',          color:'#B4BCC2' },
+  { id:'mxplayer',   name:'MX Player',          color:'#2E7DF7' },
+  { id:'aha',        name:'aha',                color:'#F26B21' },
+  { id:'sunnxt',     name:'Sun NXT',            color:'#E4002B' },
+  { id:'hoichoi',    name:'hoichoi',            color:'#D42127' },
+  { id:'crunchyroll',name:'Crunchyroll',        color:'#F47521' },
+  { id:'discovery',  name:'Discovery+',         color:'#0077C8' },
+  { id:'lionsgate',  name:'Lionsgate Play',     color:'#C8A24B' },
+  { id:'youtube',    name:'YouTube',            color:'#FF0000' },
+  { id:'other',      name:'Other / TV',         color:'#8992B4' }
+];
+
+const BLANK = {
+  version: 3,
+  platforms: null,
+  shows: {},       /* id -> record */
+  watched: {},     /* showId -> { epId: timestampMs } */
+  prefs: { theme:'system', sort:'recent', showCompleted:true, lastTab:'home' }
+};
+
+let db = JSON.parse(JSON.stringify(BLANK));
+let saveTimer = null, saveFailed = false;
+
+function readJSON(key){
+  try { return JSON.parse(localStorage.getItem(key)) || null; } catch(e){ return null; }
+}
+
+/* ---- migration ---- */
+(function boot(){
+  const v3 = readJSON(K3);
+  if(v3){
+    db = Object.assign(db, v3);
+    db.prefs = Object.assign({}, BLANK.prefs, db.prefs || {});
+  } else {
+    const v2 = readJSON(K2);
+    if(v2){
+      /* carry everything across, upgrading shapes as we go */
+      db.platforms = (v2.platforms || []).map(function(p, i){
+        return { id:p.id, name:p.name, color:p.color, active: p.active !== false, order: i };
+      });
+      Object.keys(v2.shows || {}).forEach(function(id){
+        const s = v2.shows[id];
+        db.shows[id] = {
+          id: s.id, name: s.name, image: s.image, poster: s.poster || s.image,
+          premiered: s.premiered, ended: s.ended || null, tvStatus: s.status || '',
+          genres: s.genres || [], rating: s.rating || null, network: s.network || '',
+          summary: s.summary || '', eps: s.eps || [],
+          platform: s.platform || null,
+          favourite: false, pinned: false, priority: 0, note: '',
+          hold: null, completedAt: null,
+          addedAt: s.touched || Date.now(),
+          touched: s.touched || Date.now(),
+          refreshed: 0,
+          saved: !!s.saved
+        };
+      });
+      /* v2 stored watched[show][ep] = 1; v3 stores a timestamp so we can build history */
+      Object.keys(v2.watched || {}).forEach(function(sid){
+        const stamp = (v2.shows && v2.shows[sid] && v2.shows[sid].touched) || Date.now();
+        db.watched[sid] = {};
+        Object.keys(v2.watched[sid]).forEach(function(eid){
+          const val = v2.watched[sid][eid];
+          db.watched[sid][eid] = (typeof val === 'number' && val > 1000000) ? val : stamp;
+        });
+      });
+      console.info('SPINE: migrated', Object.keys(db.shows).length, 'series from v2');
+    }
+  }
+  if(!db.platforms || !db.platforms.length){
+    db.platforms = DEFAULT_PLATFORMS.map(function(p,i){
+      return Object.assign({ active:true, order:i }, p);
+    });
+  }
+  db.platforms.forEach(function(p,i){ if(p.order == null) p.order = i; if(p.active == null) p.active = true; });
+  db.version = 3;
+  save();
+})();
+
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(function(){
+    try { localStorage.setItem(K3, JSON.stringify(db)); saveFailed = false; }
+    catch(e){
+      console.error('SPINE save failed', e);
+      if(!saveFailed){ saveFailed = true; toast('Storage is full — export a backup from Settings.'); }
+    }
+    if(cloudUser && !applyingRemote) pushCloud();
+  }, 200);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CLOUD SYNC — Firebase Auth + Firestore, with shared households
+   Local storage stays the source of truth when signed out, or
+   offline, or if Firebase isn't configured yet. Nothing here
+   blocks the app from working exactly as before.
+
+   Data model:
+     users/{uid}                  -> { householdId }
+     households/{hid}             -> the full app data blob (shows,
+                                       watched, platforms, prefs) —
+                                       full overwrite on every save,
+                                       exactly like the old per-user doc
+     households/{hid}/meta/info   -> { members: { uid: {email, joinedAt} } }
+     invites/{code}               -> { householdId, createdBy, createdAt }
+     spineUsers/{uid}             -> legacy pre-household doc, read once
+                                       for migration, never written again
+   ═══════════════════════════════════════════════════════════ */
+let fb = null, cloudUser = null, unsubSnap = null, unsubMeta = null,
+    applyingRemote = false, cloudBusy = false;
+let householdId = null, householdMembers = {}, needsHouseholdSetup = false,
+    hasLegacyData = false, inviteCode = null;
+
+window.addEventListener('fb-ready', function(){
+  fb = window.__fb;
+  fb.onAuthStateChanged(fb.auth, function(user){
+    cloudUser = user || null;
+    if(user) attachCloud(user.uid, user.email);
+    else { detachCloud(); resetHouseholdState(); }
+    if(route.name === 'settings') viewSettings();
+  });
+});
+
+function resetHouseholdState(){
+  householdId = null; householdMembers = {}; needsHouseholdSetup = false;
+  hasLegacyData = false; inviteCode = null;
+}
+function newId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+function newInviteCode(){
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   /* no 0/O or 1/I mix-ups */
+  let s = ''; for(let i = 0; i < 6; i++) s += A[Math.floor(Math.random() * A.length)];
+  return s;
+}
+
+function usersRef(uid){ return fb.doc(fb.fs, 'users', uid); }
+function householdRef(hid){ return fb.doc(fb.fs, 'households', hid); }
+function householdMetaRef(hid){ return fb.doc(fb.fs, 'households', hid, 'meta', 'info'); }
+function inviteRef(code){ return fb.doc(fb.fs, 'invites', code); }
+function legacyRef(uid){ return fb.doc(fb.fs, 'spineUsers', uid); }
+
+async function attachCloud(uid, email){
+  cloudBusy = true;
+  if(route.name === 'settings') viewSettings();
+  try {
+    const uref = await fb.getDoc(usersRef(uid));
+    if(uref.exists() && uref.data().householdId){
+      await enterHousehold(uref.data().householdId);
+      toast('Signed in — synced');
+    } else {
+      /* no household yet — check for pre-sharing local data so the
+         setup screen can offer to carry it into a new household */
+      needsHouseholdSetup = true;
+      try {
+        const legacy = await fb.getDoc(legacyRef(uid));
+        hasLegacyData = !!(legacy.exists() && legacy.data() && legacy.data().shows &&
+          Object.keys(legacy.data().shows).length);
+      } catch(e){ hasLegacyData = false; }
+    }
+  } catch(e){
+    console.error('cloud attach failed', e);
+    toast("Signed in, but couldn't reach the sync server — working from this device for now");
+  }
+  cloudBusy = false;
+  rerender();
+}
+
+async function enterHousehold(hid){
+  householdId = hid;
+  const [dataSnap, metaSnap] = await Promise.all([
+    fb.getDoc(householdRef(hid)), fb.getDoc(householdMetaRef(hid))
+  ]);
+  if(dataSnap.exists()){
+    applyingRemote = true;
+    db = Object.assign(JSON.parse(JSON.stringify(BLANK)), dataSnap.data());
+    db.prefs = Object.assign({}, BLANK.prefs, db.prefs || {});
+    localStorage.setItem(K3, JSON.stringify(db));
+    applyingRemote = false;
+  }
+  householdMembers = (metaSnap.exists() && metaSnap.data().members) || {};
+  startHouseholdListeners(hid);
+}
+
+function startHouseholdListeners(hid){
+  detachCloud();
+  unsubSnap = fb.onSnapshot(householdRef(hid), function(snap){
+    if(!snap.exists() || snap.metadata.hasPendingWrites) return;   /* ignore the echo of our own write */
+    applyingRemote = true;
+    db = Object.assign(JSON.parse(JSON.stringify(BLANK)), snap.data());
+    db.prefs = Object.assign({}, BLANK.prefs, db.prefs || {});
+    localStorage.setItem(K3, JSON.stringify(db));
+    applyingRemote = false;
+    rerender();
+    toast('Updated from another device');
+  }, function(e){ console.error('household listener error', e); });
+
+  unsubMeta = fb.onSnapshot(householdMetaRef(hid), function(snap){
+    if(!snap.exists()) return;
+    householdMembers = snap.data().members || {};
+    if(route.name === 'settings') viewSettings();
+  }, function(e){ console.error('household meta listener error', e); });
+}
+
+function detachCloud(){
+  if(unsubSnap){ unsubSnap(); unsubSnap = null; }
+  if(unsubMeta){ unsubMeta(); unsubMeta = null; }
+}
+
+async function pushCloud(){
+  if(!fb || !cloudUser || !householdId) return;
+  try { await fb.setDoc(householdRef(householdId), db); }
+  catch(e){ console.error('cloud save failed', e); toast("Couldn't sync — will retry on your next change"); }
+}
+
+/* start a brand-new household, optionally seeded from this device's
+   pre-sharing data (offered only when hasLegacyData is true) */
+async function createHousehold(uid, email, seedData){
+  const hid = newId();
+  const data = Object.assign(JSON.parse(JSON.stringify(BLANK)), seedData || {});
+  if(!data.platforms || !data.platforms.length){
+    data.platforms = DEFAULT_PLATFORMS.map(function(p,i){ return Object.assign({ active:true, order:i }, p); });
+  }
+  await fb.setDoc(householdRef(hid), data);
+  await fb.setDoc(householdMetaRef(hid), { members: { [uid]: { email: email || '', joinedAt: Date.now() } } });
+  await fb.setDoc(usersRef(uid), { householdId: hid });
+  return hid;
+}
+
+/* join an existing household via a code its owner generated */
+async function joinHousehold(codeRaw, uid, email){
+  const code = codeRaw.trim().toUpperCase();
+  const inv = await fb.getDoc(inviteRef(code));
+  if(!inv.exists()) throw new Error("That code doesn't match an invite.");
+  const hid = inv.data().householdId;
+  await fb.setDoc(householdMetaRef(hid), { members: { [uid]: { email: email || '', joinedAt: Date.now() } } }, { merge: true });
+  await fb.setDoc(usersRef(uid), { householdId: hid });
+  return hid;
+}
+
+async function generateInvite(){
+  if(!fb || !cloudUser || !householdId) return null;
+  const code = newInviteCode();
+  await fb.setDoc(inviteRef(code), { householdId, createdBy: cloudUser.uid, createdAt: Date.now() });
+  return code;
+}
+
+async function handleCreateHousehold(){
+  cloudBusy = true; viewSettings();
+  try {
+    let seed = null;
+    if(hasLegacyData){
+      const legacy = await fb.getDoc(legacyRef(cloudUser.uid));
+      seed = legacy.exists() ? legacy.data() : null;
+    }
+    const hid = await createHousehold(cloudUser.uid, cloudUser.email, seed);
+    needsHouseholdSetup = false;
+    await enterHousehold(hid);
+    toast(seed ? "Household created — what's already tracked here came with it" : 'Household created');
+  } catch(e){ console.error(e); toast("Couldn't create the household — try again."); }
+  cloudBusy = false; rerender();
+}
+
+async function handleJoinHousehold(){
+  const codeEl = document.getElementById('joinCode');
+  const code = codeEl ? codeEl.value.trim() : '';
+  if(!code){ toast('Enter the invite code'); return; }
+  cloudBusy = true; viewSettings();
+  try {
+    const hid = await joinHousehold(code, cloudUser.uid, cloudUser.email);
+    needsHouseholdSetup = false;
+    await enterHousehold(hid);
+    toast('Joined — syncing your shared library');
+  } catch(e){ toast(e.message || "Couldn't join with that code"); }
+  cloudBusy = false; rerender();
+}
+
+function authErrorMessage(e){
+  const code = (e && e.code) || '';
+  if(code.indexOf('email-already-in-use') > -1) return 'That email is already registered — try signing in instead.';
+  if(code.indexOf('invalid-credential') > -1 || code.indexOf('wrong-password') > -1 || code.indexOf('user-not-found') > -1)
+    return 'Incorrect email or password.';
+  if(code.indexOf('weak-password') > -1) return 'Use a password of at least 6 characters.';
+  if(code.indexOf('invalid-email') > -1) return 'That email address looks invalid.';
+  if(code.indexOf('network-request-failed') > -1) return "Can't reach the sync server — check your connection.";
+  if(code.indexOf('too-many-requests') > -1) return 'Too many attempts — wait a moment and try again.';
+  return "That didn't work. Please try again.";
+}
+async function doSignUp(email, pw){
+  cloudBusy = true; viewSettings();
+  try { await fb.createUserWithEmailAndPassword(fb.auth, email, pw); }
+  catch(e){ cloudBusy = false; toast(authErrorMessage(e)); viewSettings(); }
+}
+async function doSignIn(email, pw){
+  cloudBusy = true; viewSettings();
+  try { await fb.signInWithEmailAndPassword(fb.auth, email, pw); }
+  catch(e){ cloudBusy = false; toast(authErrorMessage(e)); viewSettings(); }
+}
+async function doSignOut(){
+  try {
+    detachCloud(); resetHouseholdState();
+    await fb.signOut(fb.auth);
+    toast('Signed out — this device keeps its own copy');
+  } catch(e){ toast("Couldn't sign out — try again."); }
+}
+
+/* ═══════════ helpers ═══════════ */
+const API = 'https://api.tvmaze.com';
+const E_ID=0, E_S=1, E_N=2, E_DATE=3, E_RUN=4, E_NAME=5;
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const strip = h => !h ? '' : h.replace(/<[^>]*>/g,'').replace(/&nbsp;/g,' ')
+  .replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&[a-z]+;/g,' ').trim();
+const pad2 = n => String(n).padStart(2,'0');
+const epCode = (s,n) => 'S'+pad2(s)+'E'+pad2(n||0);
+const hasAired = d => d ? new Date(d).getTime() <= Date.now() : false;
+const DAY = 86400000;
+
+function fmtDate(d){
+  if(!d) return 'TBA';
+  return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+}
+function fmtRun(m){
+  if(!m) return '0m';
+  const h = Math.floor(m/60), r = m%60;
+  return h && r ? h+'h '+r+'m' : h ? h+'h' : r+'m';
+}
+function ago(ts){
+  if(!ts) return '';
+  const d = Date.now() - ts;
+  if(d < 60000) return 'just now';
+  if(d < 3600000) return Math.floor(d/60000)+'m ago';
+  if(d < DAY) return Math.floor(d/3600000)+'h ago';
+  const days = Math.floor(d/DAY);
+  if(days === 1) return 'yesterday';
+  if(days < 7) return days+' days ago';
+  if(days < 30) return Math.floor(days/7)+'w ago';
+  if(days < 365) return Math.floor(days/30)+'mo ago';
+  return Math.floor(days/365)+'y ago';
+}
+function startOfWeek(){
+  const d = new Date(); d.setHours(0,0,0,0);
+  d.setDate(d.getDate() - ((d.getDay()+6) % 7));   /* Monday */
+  return d.getTime();
+}
+function startOfMonth(){
+  const d = new Date(); d.setHours(0,0,0,0); d.setDate(1);
+  return d.getTime();
+}
+
+/* ═══════════ derived series state ═══════════ */
+function watchedOf(id){ if(!db.watched[id]) db.watched[id] = {}; return db.watched[id]; }
+
+/* everything the UI needs about one series, computed once */
+function progress(id){
+  const rec = db.shows[id];
+  if(!rec) return null;
+  const w = db.watched[id] || {};
+  const eps = (rec.eps || []).slice().sort((a,b) => a[E_S]-b[E_S] || a[E_N]-b[E_N]);
+  let total=0, aired=0, done=0, doneAired=0, mins=0, last=null, lastTs=0, next=null;
+  eps.forEach(function(e){
+    if(e[E_S] === 0) return;                 /* specials sit outside the count */
+    total++;
+    const a = hasAired(e[E_DATE]);
+    if(a) aired++;
+    if(w[e[E_ID]]){
+      done++; mins += e[E_RUN] || 0;
+      if(a) doneAired++;
+      if(w[e[E_ID]] >= lastTs){ lastTs = w[e[E_ID]]; last = e; }
+    } else if(a && !next){
+      next = e;
+    }
+  });
+  const pct = total ? Math.round(done/total*100) : 0;
+  let status;
+  if(rec.hold) status = 'hold';
+  else if(done === 0) status = 'new';
+  else if(aired > 0 && doneAired >= aired) status = 'done';
+  else status = 'watching';
+  return { rec, eps, total, aired, done, doneAired, mins, pct,
+           last, lastTs, next, remaining: aired - doneAired, status };
+}
+
+const STATUS = {
+  new:      { label:'Not started', color:'var(--new)' },
+  watching: { label:'Watching',    color:'var(--watch)' },
+  hold:     { label:'On hold',     color:'var(--hold)' },
+  done:     { label:'Completed',   color:'var(--done)' }
+};
+
+function allShows(){ return Object.keys(db.shows).map(k => db.shows[k]); }
+function tracked(){ return allShows(); }
+
+function platformOf(id){
+  const rec = db.shows[id];
+  if(!rec || !rec.platform) return null;
+  return db.platforms.find(p => p.id === rec.platform) || null;
+}
+function activePlatforms(){
+  return db.platforms.slice().sort((a,b)=>a.order-b.order).filter(p => p.active !== false);
+}
+function sortedPlatforms(){ return (db.platforms || []).slice().sort((a,b)=>a.order-b.order); }
+function platformUsage(pid){ return allShows().filter(s => s.platform === pid).length; }
+
+/* ═══════════ ranking for Watch Next ═══════════ */
+function watchNext(){
+  return allShows().map(s => progress(s.id))
+    .filter(p => p && p.next && p.status !== 'done' && p.status !== 'hold')
+    .sort(function(a,b){
+      if(a.rec.pinned !== b.rec.pinned) return a.rec.pinned ? -1 : 1;
+      if((b.rec.priority||0) !== (a.rec.priority||0)) return (b.rec.priority||0) - (a.rec.priority||0);
+      if(a.rec.favourite !== b.rec.favourite) return a.rec.favourite ? -1 : 1;
+      if(a.status !== b.status) return a.status === 'watching' ? -1 : 1;
+      return (b.lastTs || b.rec.addedAt || 0) - (a.lastTs || a.rec.addedAt || 0);
+    });
+}
+function recentlyWatched(limit){
+  const out = [];
+  Object.keys(db.watched).forEach(function(sid){
+    const rec = db.shows[sid]; if(!rec) return;
+    const eps = rec.eps || [];
+    Object.keys(db.watched[sid]).forEach(function(eid){
+      const e = eps.find(x => String(x[E_ID]) === String(eid));
+      if(e) out.push({ rec, ep:e, ts: db.watched[sid][eid] });
+    });
+  });
+  return out.sort((a,b) => b.ts - a.ts).slice(0, limit || 8);
+}
+function almostDone(){
+  return allShows().map(s => progress(s.id))
+    .filter(p => p && p.status === 'watching' && p.remaining > 0 && p.remaining <= 3)
+    .sort((a,b) => a.remaining - b.remaining);
+}
+
+
+/* ═══════════ TVmaze access — cached, debounced, fault-tolerant ═══════════ */
+const memo = { search:{}, show:{} };
+let online = true;
+
+async function api(path, timeoutMs){
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs || 9000);
+  try {
+    const r = await fetch(API + path, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if(r.status === 429) throw new Error('rate');
+    if(!r.ok) throw new Error('http');
+    online = true;
+    return await r.json();
+  } catch(e){
+    clearTimeout(timer);
+    if(e.name === 'AbortError') throw new Error('slow');
+    if(e.message === 'rate') throw new Error('rate');
+    if(e instanceof TypeError) { online = false; throw new Error('offline'); }
+    throw e;
+  }
+}
+function apiMessage(err){
+  switch(err && err.message){
+    case 'rate':    return 'TVmaze is rate-limiting us. Give it a few seconds.';
+    case 'slow':    return 'TVmaze is slow to respond. Try again.';
+    case 'offline': return "Can't reach TVmaze — you appear to be offline. Your tracked series still work.";
+    default:        return 'TVmaze search is temporarily unavailable. Please try again.';
+  }
+}
+async function searchShows(q){
+  const key = q.toLowerCase();
+  if(memo.search[key]) return memo.search[key];
+  const data = await api('/search/shows?q=' + encodeURIComponent(q));
+  const list = data.map(d => d.show);
+  memo.search[key] = list;
+  return list;
+}
+async function fetchShow(id){
+  if(memo.show[id]) return memo.show[id];
+  const data = await api('/shows/' + id + '?embed=episodes');
+  memo.show[id] = data;
+  return data;
+}
+/* fold a TVmaze payload into our record, never touching watch progress */
+function absorb(data, keep){
+  const eps = (data._embedded && data._embedded.episodes) || [];
+  const prev = keep || db.shows[data.id] || {};
+  return {
+    id: data.id,
+    name: data.name,
+    image: data.image ? data.image.medium : null,
+    poster: data.image ? (data.image.original || data.image.medium) : null,
+    premiered: data.premiered, ended: data.ended || null,
+    tvStatus: data.status || '',
+    genres: data.genres || [],
+    rating: (data.rating && data.rating.average) || null,
+    network: (data.network && data.network.name) || (data.webChannel && data.webChannel.name) || '',
+    summary: strip(data.summary),
+    eps: eps.map(e => [e.id, e.season, e.number, e.airdate, e.runtime, e.name]),
+    /* everything below is the user's, and survives every refresh */
+    platform:   prev.platform || null,
+    favourite: !!prev.favourite,
+    pinned:    !!prev.pinned,
+    priority:  prev.priority || 0,
+    note:      prev.note || '',
+    hold:      prev.hold || null,
+    completedAt: prev.completedAt || null,
+    addedAt:   prev.addedAt || Date.now(),
+    touched:   prev.touched || Date.now(),
+    refreshed: Date.now(),
+    saved:     prev.saved !== undefined ? prev.saved : true
+  };
+}
+
+/* ═══════════ toast + undo ═══════════ */
+const toastEl = document.getElementById('toast');
+let toastTimer = null;
+function toast(msg, undoFn){
+  clearTimeout(toastTimer);
+  toastEl.innerHTML = '<span>' + esc(msg) + '</span>' +
+    (undoFn ? '<button id="undoBtn">Undo</button>' : '');
+  toastEl.classList.add('on');
+  if(undoFn){
+    document.getElementById('undoBtn').onclick = function(){
+      undoFn(); hideToast();
+    };
+  }
+  toastTimer = setTimeout(hideToast, undoFn ? 5200 : 3000);
+}
+function hideToast(){ toastEl.classList.remove('on'); }
+
+/* ═══════════ bottom sheet ═══════════ */
+const sheetEl = document.getElementById('sheet');
+const scrimEl = document.getElementById('scrim');
+let sheetOpen = false, lastFocus = null;
+
+function openSheet(title, html, wire){
+  lastFocus = document.activeElement;
+  sheetEl.innerHTML = '<div class="sheet-grab"></div><h2 id="sheetTitle">' + esc(title) + '</h2>' + html;
+  sheetEl.classList.add('on'); scrimEl.classList.add('on');
+  sheetOpen = true;
+  if(wire) wire(sheetEl);
+  const first = sheetEl.querySelector('button,input,select,textarea,[tabindex]');
+  if(first) setTimeout(() => first.focus(), 60);
+}
+function closeSheet(){
+  sheetEl.classList.remove('on'); scrimEl.classList.remove('on');
+  sheetOpen = false;
+  if(lastFocus && lastFocus.focus) lastFocus.focus();
+}
+scrimEl.addEventListener('click', closeSheet);
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape' && sheetOpen) closeSheet();
+});
+
+/* ═══════════ icons ═══════════ */
+const ICON = {
+  home:  '<path d="M3 10.4 12 3l9 7.4"/><path d="M5.5 9.4V20h13V9.4"/>',
+  grid:  '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/>',
+  play:  '<path d="M7 4.5 19 12 7 19.5z"/>',
+  stats: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  gear:  '<circle cx="12" cy="12" r="3.1"/><path d="M12 2.8v2.6M12 18.6v2.6M21.2 12h-2.6M5.4 12H2.8M18.6 5.4l-1.9 1.9M7.3 16.7l-1.9 1.9M18.6 18.6l-1.9-1.9M7.3 7.3 5.4 5.4"/>',
+  star:  '<path d="m12 3.6 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.8l5.9-.9z"/>',
+  check: '<path d="M4 12.5 9 17.5 20 6.5"/>',
+  chev:  '<path d="m6 9 6 6 6-6"/>',
+  back:  '<path d="M15 5l-7 7 7 7"/>',
+  more:  '<circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/>',
+  pin:   '<path d="M9 4h6l-1 6 3.5 3.5H6.5L10 10z"/><path d="M12 13.5V21"/>',
+  edit:  '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  trash: '<path d="M4 6.5h16M9.5 6.5V4.5h5v2M6.5 6.5 7.5 20h9l1-13.5"/>',
+  pause: '<path d="M9 5v14M15 5v14"/>',
+  refresh:'<path d="M20 11a8 8 0 1 0-.6 4"/><path d="M20 4.5V11h-6.2"/>',
+  filter:'<path d="M3.5 6h17M7 12h10M10.5 18h3"/>',
+  down:  '<path d="M12 4v13M6.5 11.5 12 17l5.5-5.5M4 20h16"/>',
+  up:    '<path d="M12 20V7M6.5 12.5 12 7l5.5 5.5M4 3h16"/>',
+  note:  '<path d="M5 4h11l3 3v13H5z"/><path d="M8.5 10h7M8.5 14h5"/>',
+  arrowU:'<path d="m6 14 6-6 6 6"/>',
+  arrowD:'<path d="m6 10 6 6 6-6"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.2l3.2 2"/>'
+};
+function ic(name, cls){
+  return '<svg class="ic ' + (cls||'') + '" viewBox="0 0 24 24" aria-hidden="true">' + ICON[name] + '</svg>';
+}
+function poster(src, name, cls){
+  return src
+    ? '<img class="' + cls + '" src="' + esc(src) + '" alt="" loading="lazy" decoding="async">'
+    : '<div class="' + cls + ' ph">' + esc((name||'?').charAt(0).toUpperCase()) + '</div>';
+}
+function ottBadge(p){
+  if(!p) return '';
+  return '<span class="ott"><i style="background:' + esc(p.color) + '"></i>' + esc(p.name) + '</span>';
+}
+function statusPill(status){
+  const s = STATUS[status];
+  return '<span class="pill"><i class="stat-dot" style="background:' + s.color + '"></i>' + s.label + '</span>';
+}
+
+/* ═══════════ theme ═══════════ */
+const darkMQ = window.matchMedia
+  ? window.matchMedia('(prefers-color-scheme: dark)')
+  : { matches:true, addEventListener(){} };
+function applyTheme(){
+  const pref = db.prefs.theme || 'system';
+  const dark = pref === 'dark' || (pref === 'system' && darkMQ.matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const meta = document.querySelector('meta[name=theme-color]');
+  if(meta) meta.setAttribute('content', dark ? '#0D1220' : '#F4F5FA');
+}
+darkMQ.addEventListener('change', function(){
+  if((db.prefs.theme || 'system') === 'system') applyTheme();
+});
+
+
+/* ═══════════════════════════════════════════════════════════
+   VIEWS
+   ═══════════════════════════════════════════════════════════ */
+const mainEl = document.getElementById('main');
+let route = { name: 'home' };
+let libFilter = { status:'all', platform:'', genre:'', fav:false };
+let libSort = 'recent';
+let findQuery = '';
+
+/* ---------- the one reusable series card ---------- */
+function seriesCard(p, opts){
+  opts = opts || {};
+  const rec = p.rec, plat = platformOf(rec.id);
+  const nextTxt = p.next
+    ? '<span class="sc-next"><b>' + epCode(p.next[E_S], p.next[E_N]) + '</b> next</span>'
+    : p.status === 'done'
+      ? '<span class="sc-next" style="color:var(--done)">All caught up</span>'
+      : p.status === 'hold'
+        ? '<span class="sc-next">Paused' + (p.last ? ' at ' + epCode(p.last[E_S], p.last[E_N]) : '') + '</span>'
+        : '<span class="sc-next">Nothing aired yet</span>';
+  const epTitle = p.next && p.next[E_NAME]
+    ? '<div class="sc-eptitle">' + esc(p.next[E_NAME]) + '</div>' : '';
+
+  return '<article class="scard' + (rec.pinned ? ' pinned' : '') + '" data-open="' + rec.id + '">' +
+    poster(rec.image, rec.name, 'sc-poster') +
+    '<div class="sc-body">' +
+      '<div class="sc-top">' +
+        '<h3 class="sc-name">' + esc(rec.name) + '</h3>' +
+        '<button class="sc-star' + (rec.favourite ? ' on' : '') + '" data-fav="' + rec.id + '" ' +
+          'aria-label="' + (rec.favourite ? 'Remove from' : 'Add to') + ' favourites" aria-pressed="' + !!rec.favourite + '">' +
+          ic('star','sm') + '</button>' +
+      '</div>' +
+      '<div class="sc-meta">' + ottBadge(plat) +
+        (rec.pinned ? '<span class="pill">' + ic('pin','sm') + 'Pinned</span>' : '') +
+        (p.status === 'hold' ? statusPill('hold') : '') + '</div>' +
+      nextTxt + epTitle +
+      '<div class="sc-foot">' +
+        '<div class="pbar' + (p.status === 'done' ? ' done' : '') + '">' +
+          '<i style="width:' + p.pct + '%"></i></div>' +
+        '<span class="pct">' + p.pct + '%</span>' +
+      '</div>' +
+      '<div class="mono">' + p.done + ' / ' + p.total + ' episodes' +
+        (p.remaining > 0 && p.remaining <= 3 && p.status === 'watching'
+          ? ' · <span style="color:var(--accent)">' + p.remaining + ' left</span>' : '') + '</div>' +
+      (opts.compact ? '' :
+      '<div class="sc-actions">' +
+        (p.next
+          ? '<button class="btn sm primary" data-mark="' + rec.id + ':' + p.next[E_ID] + '">' +
+            ic('check','sm') + 'Watched</button>'
+          : '') +
+        '<button class="btn sm" data-open="' + rec.id + '">Details</button>' +
+        '<button class="btn sm icon" data-menu="' + rec.id + '" aria-label="More actions">' + ic('more','sm') + '</button>' +
+      '</div>') +
+    '</div>' +
+  '</article>';
+}
+
+function skeletonCards(n){
+  let out = '';
+  for(let i=0;i<(n||3);i++){
+    out += '<div class="skel-card"><div class="skel" style="width:74px;height:111px;flex:none"></div>' +
+      '<div style="flex:1"><div class="skel skel-line" style="width:70%"></div>' +
+      '<div class="skel skel-line" style="width:44%"></div>' +
+      '<div class="skel skel-line" style="width:88%;margin-top:18px"></div>' +
+      '<div class="skel skel-line" style="width:30%"></div></div></div>';
+  }
+  return out;
+}
+function emptyState(icon, title, body, cta){
+  return '<div class="empty"><div class="big">' + icon + '</div>' +
+    '<h3>' + esc(title) + '</h3><p>' + esc(body) + '</p>' +
+    (cta ? '<button class="btn primary" id="' + cta.id + '">' + esc(cta.label) + '</button>' : '') + '</div>';
+}
+
+/* ---------- HOME ---------- */
+function viewHome(){
+  const shows = allShows();
+  if(!shows.length){
+    mainEl.innerHTML = '<div class="view">' +
+      emptyState('📺', 'Your watchlist is empty',
+        'Add a series and start tracking your progress. Search TVmaze for anything you are watching.',
+        { id:'ctaAdd', label:'Add your first series' }) + '</div>';
+    document.getElementById('ctaAdd').onclick = openAddSheet;
+    return;
+  }
+
+  const all = shows.map(s => progress(s.id)).filter(Boolean);
+  const by = st => all.filter(p => p.status === st).length;
+  const next = watchNext();
+  const recent = recentlyWatched(5);
+  const almost = almostDone();
+  const favs = all.filter(p => p.rec.favourite && p.status !== 'done');
+  const added = shows.slice().sort((a,b) => (b.addedAt||0) - (a.addedAt||0)).slice(0,6);
+
+  let html = '<div class="view">';
+
+  /* header */
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  html += '<p class="h-eyebrow">' + greet + '</p>' +
+    '<h1 class="h-title">' +
+      (next.length ? (next.length === 1 ? '1 series is waiting.' : next.length + ' series are waiting.')
+                   : 'All caught up.') +
+    '</h1>';
+
+  /* summary strip */
+  html += '<div class="summary-strip" style="margin-top:18px">' +
+    sumBox(shows.length, 'Total', null) +
+    sumBox(by('watching'), 'Watching', 'var(--watch)') +
+    sumBox(by('new'), 'Not started', 'var(--new)') +
+    sumBox(by('hold'), 'On hold', 'var(--hold)') +
+    sumBox(by('done'), 'Completed', 'var(--done)') +
+  '</div>';
+
+  /* WATCH NEXT — the headline section */
+  html += '<section class="sect"><div class="sect-head"><h2 class="sect-title">Watch next</h2>' +
+    (next.length > 4 ? '<button class="sect-more" data-go="upnext">See all ' + next.length + '</button>' : '') +
+    '</div>';
+  html += next.length
+    ? next.slice(0,4).map(p => seriesCard(p)).join('')
+    : emptyState('✨', 'Nothing to continue',
+        'Start a series, or take one off hold, to see it here.');
+  html += '</section>';
+
+  if(almost.length){
+    html += '<section class="sect"><div class="sect-head"><h2 class="sect-title">Almost complete</h2></div>' +
+      almost.slice(0,3).map(p => seriesCard(p, {compact:true})).join('') + '</section>';
+  }
+
+  if(recent.length){
+    html += '<section class="sect"><div class="sect-head"><h2 class="sect-title">Recently watched</h2></div>' +
+      '<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px 13px">' +
+      recent.map(function(r){
+        return '<button class="ep" data-open="' + r.rec.id + '" style="width:100%">' +
+          '<div class="ep-main"><div class="ep-line">' +
+            '<span class="ep-name">' + esc(r.rec.name) + '</span></div>' +
+            '<div class="ep-sub">' + epCode(r.ep[E_S], r.ep[E_N]) + ' · ' + esc(ago(r.ts)) + '</div>' +
+          '</div></button>';
+      }).join('') + '</div></section>';
+  }
+
+  if(favs.length){
+    html += '<section class="sect"><div class="sect-head"><h2 class="sect-title">Favourites</h2></div>' +
+      favs.slice(0,3).map(p => seriesCard(p, {compact:true})).join('') + '</section>';
+  }
+
+  html += '<section class="sect"><div class="sect-head"><h2 class="sect-title">Recently added</h2>' +
+    '<button class="sect-more" data-go="library">All series</button></div>' +
+    '<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px 13px">' +
+    added.map(function(rec){
+      const p = progress(rec.id), plat = platformOf(rec.id);
+      return '<button class="ep" data-open="' + rec.id + '" style="width:100%">' +
+        '<div class="ep-main"><div class="ep-line">' +
+          '<span class="ep-name">' + esc(rec.name) + '</span>' +
+          '<i class="stat-dot" style="background:' + STATUS[p.status].color + '"></i></div>' +
+          '<div class="ep-sub">' + (plat ? esc(plat.name) + ' · ' : '') +
+            'added ' + esc(ago(rec.addedAt)) + '</div>' +
+        '</div></button>';
+    }).join('') + '</div></section>';
+
+  html += '</div>';
+  mainEl.innerHTML = html;
+}
+function sumBox(n, label, color){
+  return '<div class="sumbox"><b>' + n + '</b><span>' +
+    (color ? '<i class="stat-dot" style="background:' + color + '"></i>' : '') + esc(label) + '</span></div>';
+}
+
+/* ---------- UP NEXT ---------- */
+function viewUpNext(){
+  const list = watchNext();
+  let html = '<div class="view"><p class="h-eyebrow">Free time?</p><h1 class="h-title">Up next.</h1>' +
+    '<p class="h-sub">Every incomplete series with an episode ready to watch, best bets first.</p>';
+  html += '<div class="sect">' + (list.length
+    ? '<div class="cardgrid">' + list.map(p => seriesCard(p)).join('') + '</div>'
+    : emptyState('🎉', "You're all caught up!",
+        'No unwatched aired episodes across your library. Time to add something new.',
+        { id:'ctaAdd2', label:'Add a series' })) + '</div></div>';
+  mainEl.innerHTML = html;
+  const b = document.getElementById('ctaAdd2'); if(b) b.onclick = openAddSheet;
+}
+
+/* ---------- LIBRARY ---------- */
+function viewLibrary(){
+  let list = allShows().map(s => progress(s.id)).filter(Boolean);
+  const counts = {
+    all: list.length,
+    watching: list.filter(p=>p.status==='watching').length,
+    new: list.filter(p=>p.status==='new').length,
+    hold: list.filter(p=>p.status==='hold').length,
+    done: list.filter(p=>p.status==='done').length
+  };
+  if(libFilter.status !== 'all') list = list.filter(p => p.status === libFilter.status);
+  if(libFilter.platform) list = list.filter(p => p.rec.platform === libFilter.platform);
+  if(libFilter.genre) list = list.filter(p => (p.rec.genres||[]).indexOf(libFilter.genre) > -1);
+  if(libFilter.fav) list = list.filter(p => p.rec.favourite);
+  if(findQuery){
+    const q = findQuery.toLowerCase();
+    list = list.filter(function(p){
+      const plat = platformOf(p.rec.id);
+      return p.rec.name.toLowerCase().indexOf(q) > -1 ||
+        (plat && plat.name.toLowerCase().indexOf(q) > -1) ||
+        (p.rec.genres||[]).some(g => g.toLowerCase().indexOf(q) > -1) ||
+        STATUS[p.status].label.toLowerCase().indexOf(q) > -1;
+    });
+  }
+  list.sort(function(a,b){
+    switch(libSort){
+      case 'az':       return a.rec.name.localeCompare(b.rec.name);
+      case 'progress': return b.pct - a.pct;
+      case 'least':    return a.pct - b.pct;
+      case 'watched':  return (b.lastTs||0) - (a.lastTs||0);
+      case 'added':    return (b.rec.addedAt||0) - (a.rec.addedAt||0);
+      default:         return (b.lastTs || b.rec.touched || 0) - (a.lastTs || a.rec.touched || 0);
+    }
+  });
+
+  const chip = (k,label) => '<button class="chip' + (libFilter.status===k?' on':'') + '" data-fstatus="' + k + '">' +
+    label + '<span class="n">' + counts[k] + '</span></button>';
+
+  const activeExtra = (libFilter.platform?1:0) + (libFilter.genre?1:0) + (libFilter.fav?1:0);
+
+  let html = '<div class="view">' +
+    '<div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:16px">' +
+      '<div style="flex:1"><p class="h-eyebrow">My series</p><h1 class="h-title">Library.</h1></div>' +
+      '<button class="btn' + (activeExtra?' primary':'') + '" id="btnFilters">' + ic('filter','sm') +
+        (activeExtra ? activeExtra : 'Filter') + '</button>' +
+    '</div>' +
+    '<input class="field" id="libSearch" placeholder="Search my series, platform, genre…" ' +
+      'value="' + esc(findQuery) + '" autocomplete="off" style="margin-bottom:14px">' +
+    '<div class="chiprow">' + chip('all','All') + chip('watching','Watching') +
+      chip('new','Not started') + chip('hold','On hold') + chip('done','Completed') + '</div>';
+
+  html += list.length
+    ? '<div class="cardgrid">' + list.map(p => seriesCard(p)).join('') + '</div>'
+    : emptyState('🔍', 'Nothing matches',
+        findQuery || activeExtra ? 'Try clearing a filter or searching for something else.'
+                                 : 'Add a series to start building your library.');
+  html += '</div>';
+  mainEl.innerHTML = html;
+
+  const si = document.getElementById('libSearch');
+  si.addEventListener('input', debounce(function(){
+    findQuery = si.value.trim();
+    const pos = si.selectionStart;
+    viewLibrary();
+    const ns = document.getElementById('libSearch');
+    ns.focus(); ns.setSelectionRange(pos,pos);
+  }, 200));
+  document.getElementById('btnFilters').onclick = openFilterSheet;
+}
+
+function debounce(fn, ms){
+  let t; return function(){ const a = arguments, c = this;
+    clearTimeout(t); t = setTimeout(() => fn.apply(c,a), ms); };
+}
+
+
+/* ---------- SERIES DETAIL ---------- */
+let openSeasons = {};
+
+function viewShow(id){
+  const rec = db.shows[id];
+  if(!rec){ go('home'); return; }
+  const p = progress(id), plat = platformOf(id), w = watchedOf(id);
+
+  const seasons = {};
+  (rec.eps||[]).forEach(function(e){
+    (seasons[e[E_S]] = seasons[e[E_S]] || []).push(e);
+  });
+  const keys = Object.keys(seasons).map(Number).sort((a,b)=>a-b);
+  keys.forEach(k => seasons[k].sort((a,b)=>a[E_N]-b[E_N]));
+  const realSeasons = keys.filter(k => k !== 0).length;
+
+  if(openSeasons[id] === undefined && p.next) openSeasons[id] = p.next[E_S];
+
+  let html = '<div class="view" style="padding-top:0">' +
+    '<div style="display:flex;gap:6px;padding:10px 0 2px">' +
+      '<button class="btn sm" data-back="1">' + ic('back','sm') + 'Back</button>' +
+      '<span style="flex:1"></span>' +
+      '<button class="btn sm icon" data-refresh="' + id + '" aria-label="Refresh from TVmaze">' + ic('refresh','sm') + '</button>' +
+      '<button class="btn sm icon" data-menu="' + id + '" aria-label="More actions">' + ic('more','sm') + '</button>' +
+    '</div>';
+
+  /* hero */
+  html += '<div class="hero">' +
+    (rec.poster ? '<div class="hero-bg"><img src="' + esc(rec.poster) + '" alt=""></div>' : '') +
+    '<div class="hero-in">' + poster(rec.poster || rec.image, rec.name, 'hero-poster') +
+      '<div class="hero-info">' +
+        '<h1 class="hero-title">' + esc(rec.name) + '</h1>' +
+        '<div class="tagrow">' + statusPill(p.status) +
+          (rec.rating ? '<span class="pill">★ ' + rec.rating + '</span>' : '') +
+          (rec.premiered ? '<span class="pill">' + rec.premiered.slice(0,4) +
+            (rec.ended ? '–' + rec.ended.slice(0,4) : '–') + '</span>' : '') +
+          (rec.tvStatus ? '<span class="pill">' + esc(rec.tvStatus) + '</span>' : '') +
+        '</div>' +
+        '<div class="tagrow">' + ottBadge(plat) +
+          (rec.favourite ? '<span class="pill" style="color:var(--accent)">★ Favourite</span>' : '') +
+          (rec.pinned ? '<span class="pill">' + ic('pin','sm') + 'Pinned</span>' : '') + '</div>' +
+        '<div class="sc-foot" style="margin-top:6px">' +
+          '<div class="pbar' + (p.status==='done'?' done':'') + '"><i style="width:' + p.pct + '%"></i></div>' +
+          '<span class="pct">' + p.pct + '%</span></div>' +
+        '<div class="mono">' + p.done + ' / ' + p.total + ' episodes watched · ' + fmtRun(p.mins) + '</div>' +
+      '</div></div></div>';
+
+  /* hold banner */
+  if(rec.hold){
+    html += '<div style="background:color-mix(in srgb,var(--hold) 14%,transparent);border:1px solid ' +
+      'color-mix(in srgb,var(--hold) 40%,var(--line));border-radius:14px;padding:13px;margin-bottom:14px">' +
+      '<div style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px">' +
+        ic('pause','sm') + 'On hold since ' + esc(fmtDate(rec.hold.since)) + '</div>' +
+      (rec.hold.reason ? '<div style="font-size:13.5px;color:var(--muted);margin-top:6px">' +
+        esc(rec.hold.reason) + '</div>' : '') +
+      '<button class="btn sm primary" data-resume="' + id + '" style="margin-top:11px">Resume watching</button>' +
+    '</div>';
+  }
+
+  /* the stepper — the fastest way to move progress */
+  if(p.next && !rec.hold){
+    html += '<div class="stepper" style="margin-bottom:14px">' +
+      '<button data-step="-1" aria-label="Un-watch the last episode"' + (p.last ? '' : ' disabled') + '>−</button>' +
+      '<div class="mid"><b>' + epCode(p.next[E_S], p.next[E_N]) + ' next</b>' +
+        '<span>' + esc(p.next[E_NAME] || 'Untitled') + '</span></div>' +
+      '<button data-step="1" aria-label="Mark the next episode watched">+</button>' +
+    '</div>' +
+    '<button class="btn primary wide" data-mark="' + id + ':' + p.next[E_ID] + '" style="margin-bottom:16px">' +
+      ic('check','sm') + 'Mark ' + epCode(p.next[E_S], p.next[E_N]) + ' watched</button>';
+  } else if(p.status === 'done'){
+    html += '<div style="background:color-mix(in srgb,var(--done) 13%,transparent);border:1px solid ' +
+      'color-mix(in srgb,var(--done) 38%,var(--line));border-radius:14px;padding:15px;margin-bottom:14px;text-align:center">' +
+      '<div style="font-weight:600">🎉 Series complete</div>' +
+      (rec.completedAt ? '<div class="mono" style="margin-top:5px">Finished ' + esc(fmtDate(rec.completedAt)) + '</div>' : '') +
+      '<button class="btn sm wide" data-rewatch="' + id + '" style="margin-top:12px">Watch again</button></div>';
+  }
+
+  /* facts */
+  html += '<dl class="kv">' +
+    kv('Seasons', realSeasons) + kv('Episodes', p.total) +
+    kv('Watched', p.done) + kv('Remaining', Math.max(0, p.aired - p.doneAired)) +
+    kv('Network', rec.network || '—') + kv('Platform', plat ? plat.name : 'Not set') +
+    kv('Last watched', p.last ? epCode(p.last[E_S], p.last[E_N]) : '—') +
+    kv('Added', ago(rec.addedAt) || '—') +
+  '</dl>';
+
+  if(rec.genres && rec.genres.length){
+    html += '<div class="tagrow" style="margin-top:14px">' +
+      rec.genres.map(g => '<span class="pill">' + esc(g) + '</span>').join('') + '</div>';
+  }
+  if(rec.summary){
+    html += '<p class="summary clip" id="sum">' + esc(rec.summary) + '</p>' +
+      '<button class="readmore" id="moreSum">Read more</button>';
+  }
+  if(rec.note){
+    html += '<div style="background:var(--card);border:1px solid var(--line);border-radius:13px;' +
+      'padding:13px;margin-top:16px;display:flex;gap:11px">' + ic('note','sm') +
+      '<div style="flex:1;font-size:13.5px;line-height:1.6;color:var(--muted)">' + esc(rec.note) + '</div></div>';
+  }
+
+  /* platform picker */
+  html += '<label class="lbl" for="platSel">Where you watch it</label>' +
+    '<select class="field" id="platSel" data-setplat="' + id + '">' +
+      '<option value="">Not set</option>' +
+      activePlatforms().map(pl => '<option value="' + esc(pl.id) + '"' +
+        (pl.id === rec.platform ? ' selected' : '') + '>' + esc(pl.name) + '</option>').join('') +
+    '</select>';
+
+  /* ---- seasons: tabs, so only one season's episodes are ever on screen ---- */
+  const active = openSeasons[id] !== undefined && seasons[openSeasons[id]]
+    ? openSeasons[id]
+    : (p.next ? p.next[E_S] : keys[keys.length - 1]);
+
+  html += '<div class="sect"><div class="sect-head"><h2 class="sect-title">Seasons</h2>' +
+    (p.status !== 'done'
+      ? '<button class="sect-more" data-complete="' + id + '">Mark whole series done</button>'
+      : '') +
+    '</div>';
+
+  html += '<div class="stabs">' + keys.map(function(k){
+    const eps = seasons[k];
+    const done = eps.filter(x => w[x[E_ID]]).length;
+    const full = done === eps.length;
+    return '<button class="stab' + (k === active ? ' on' : '') + (full ? ' full' : '') + '" ' +
+      'data-sopen="' + k + '" aria-pressed="' + (k === active) + '">' +
+      '<b>' + (k === 0 ? 'Sp' : 'S' + k) + '</b>' +
+      '<i>' + (full ? '✓' : done + '/' + eps.length) + '</i></button>';
+  }).join('') + '</div>';
+
+  const eps = seasons[active] || [];
+  const sDone = eps.filter(x => w[x[E_ID]]).length;
+  const sNext = eps.find(x => !w[x[E_ID]] && hasAired(x[E_DATE]));
+
+  html += '<div class="spanel">' +
+    '<div class="spanel-top">' +
+      '<h3>' + (active === 0 ? 'Specials' : 'Season ' + active) + '</h3>' +
+      '<span class="mono">' + sDone + '/' + eps.length + '</span>' +
+    '</div>' +
+    '<div class="sc-foot" style="margin:0 0 12px">' +
+      '<div class="pbar' + (sDone === eps.length ? ' done' : '') + '">' +
+        '<i style="width:' + (eps.length ? sDone/eps.length*100 : 0) + '%"></i></div>' +
+      '<span class="pct">' + (eps.length ? Math.round(sDone/eps.length*100) : 0) + '%</span>' +
+    '</div>' +
+    '<div class="spanel-tools">' +
+      '<button class="btn sm" data-sall="' + active + '">' +
+        (sDone === eps.length ? 'Clear season' : 'Mark season watched') + '</button>' +
+      '<button class="btn sm" data-ssel="' + active + '">' +
+        (selSeason === active ? 'Cancel select' : 'Select…') + '</button>' +
+    '</div>' +
+  '</div>';
+
+  /* the next unwatched episode of this season, lifted to the top */
+  if(sNext && !rec.hold){
+    html += '<div class="nextcard">' +
+      '<div class="lbl" style="margin:0 0 8px">Next in this season</div>' +
+      '<h4>' + epCode(sNext[E_S], sNext[E_N]) + ' · ' + esc(sNext[E_NAME] || 'Untitled') + '</h4>' +
+      '<div class="meta">' + fmtDate(sNext[E_DATE]) + ' · ' + fmtRun(sNext[E_RUN]) + '</div>' +
+      '<div class="row">' +
+        '<button class="btn primary" data-mark="' + id + ':' + sNext[E_ID] + '">' +
+          ic('check','sm') + 'Watched</button>' +
+        '<button class="btn" data-tohere="' + sNext[E_ID] + '">' + ic('down','sm') + 'All up to here</button>' +
+      '</div></div>';
+  }
+
+  html += '<div class="spanel" style="padding:6px 8px">' +
+    eps.map(x => epRow(x, w, sNext && sNext[E_ID] === x[E_ID])).join('') + '</div>';
+
+  html += '</div></div>';
+
+  mainEl.innerHTML = html;
+
+  const ms = document.getElementById('moreSum');
+  if(ms) ms.onclick = function(){
+    const sEl = document.getElementById('sum');
+    sEl.classList.toggle('clip');
+    ms.textContent = sEl.classList.contains('clip') ? 'Read more' : 'Show less';
+  };
+  window.scrollTo({top:0});
+}
+function kv(k,v){ return '<div><dt>' + esc(k) + '</dt><dd>' + esc(String(v)) + '</dd></div>'; }
+
+function epRow(e, w, isNext){
+  const on = !!w[e[E_ID]], aired = hasAired(e[E_DATE]);
+  const picked_ = picked.has(e[E_ID]);
+  return '<div class="eprow' + (on ? ' on' : '') + (picked_ ? ' picked' : '') +
+      (isNext && !on ? ' next' : '') + '" ' +
+      'data-ep="' + e[E_ID] + '" data-eps="' + e[E_S] + '" data-epn="' + (e[E_N]||0) + '">' +
+    '<button class="epbox" data-toggle="' + e[E_ID] + '" aria-pressed="' + on + '" ' +
+      'aria-label="' + (on ? 'Unmark ' : 'Mark ') + epCode(e[E_S],e[E_N]) + ' watched">' +
+      '<svg viewBox="0 0 24 24"><path d="M4 12.5 9 17.5 20 6.5"/></svg></button>' +
+    '<button class="eptext" data-toggle="' + e[E_ID] + '" tabindex="-1">' +
+      '<b>' + epCode(e[E_S], e[E_N]) + '  ' + esc(e[E_NAME] || 'Untitled') + '</b>' +
+      '<span>' + fmtDate(e[E_DATE]) + ' · ' + fmtRun(e[E_RUN]) +
+        (aired ? '' : ' · not aired') + (isNext && !on ? ' · NEXT' : '') + '</span>' +
+    '</button>' +
+    (on || !aired ? '<span style="width:42px;flex:none"></span>'
+      : '<button class="uphere" data-tohere="' + e[E_ID] + '" ' +
+        'aria-label="Mark everything up to and including ' + epCode(e[E_S],e[E_N]) + ' watched" ' +
+        'title="Mark everything up to here as watched">' + ic('down','sm') + '</button>') +
+  '</div>';
+}
+
+
+/* ═══════════ viewing history analytics ═══════════ */
+function allWatchStamps(){
+  const out = [];
+  Object.keys(db.watched).forEach(function(sid){
+    const w = db.watched[sid];
+    Object.keys(w).forEach(function(eid){ if(w[eid] > 1000000) out.push(w[eid]); });
+  });
+  return out.sort((a,b) => a - b);
+}
+function dayKey(ts){ const d = new Date(ts); d.setHours(0,0,0,0); return d.getTime(); }
+
+function streaks(){
+  const days = {};
+  allWatchStamps().forEach(function(ts){ days[dayKey(ts)] = true; });
+  const keys = Object.keys(days).map(Number).sort((a,b) => a - b);
+  if(!keys.length) return { current:0, longest:0, activeDays:0 };
+
+  let longest = 1, run = 1;
+  for(let i = 1; i < keys.length; i++){
+    run = (keys[i] - keys[i-1] === DAY) ? run + 1 : 1;
+    if(run > longest) longest = run;
+  }
+  /* a streak still counts if the last watch was today or yesterday */
+  const today = dayKey(Date.now());
+  let current = 0;
+  if(days[today] || days[today - DAY]){
+    let cursor = days[today] ? today : today - DAY;
+    while(days[cursor]){ current++; cursor -= DAY; }
+  }
+  return { current, longest, activeDays: keys.length };
+}
+
+function weeklyBuckets(n){
+  const stamps = allWatchStamps();
+  const start = startOfWeek();
+  const out = [];
+  for(let i = n - 1; i >= 0; i--){
+    const from = start - i * 7 * DAY, to = from + 7 * DAY;
+    out.push({ from, count: stamps.filter(t => t >= from && t < to).length });
+  }
+  return out;
+}
+function busiestDay(){
+  const names = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const tally = [0,0,0,0,0,0,0];
+  allWatchStamps().forEach(function(ts){ tally[new Date(ts).getDay()]++; });
+  const max = Math.max.apply(null, tally);
+  if(!max) return null;
+  return { name: names[tally.indexOf(max)], count: max };
+}
+function humanTime(mins){
+  const days = mins / 1440;
+  if(days >= 1) return days.toFixed(1) + ' full days';
+  return Math.round(mins / 60) + ' hours';
+}
+
+/* ---------- STATS ---------- */
+function viewStats(){
+  const shows = allShows();
+  if(!shows.length){
+    mainEl.innerHTML = '<div class="view">' + emptyState('📊','No statistics yet',
+      'Track a few episodes and this page will fill up.') + '</div>';
+    return;
+  }
+  const all = shows.map(s => progress(s.id)).filter(Boolean);
+  const by = st => all.filter(p => p.status === st).length;
+  let eps=0, mins=0, remaining=0, week=0, month=0;
+  const wk = startOfWeek(), mo = startOfMonth();
+  const byPlat = {}, byGenre = {};
+
+  all.forEach(function(p){
+    eps += p.done; mins += p.mins; remaining += Math.max(0, p.aired - p.doneAired);
+    const plat = platformOf(p.rec.id);
+    if(plat) byPlat[plat.name] = (byPlat[plat.name] || 0) + p.done;
+    (p.rec.genres || []).forEach(function(g){ byGenre[g] = (byGenre[g] || 0) + p.done; });
+    const w = db.watched[p.rec.id] || {};
+    Object.keys(w).forEach(function(k){
+      if(w[k] >= wk) week++;
+      if(w[k] >= mo) month++;
+    });
+  });
+  const totalEps = all.reduce((s,p) => s + p.total, 0);
+  const overall = totalEps ? Math.round(eps/totalEps*100) : 0;
+
+  function bars(obj, unit){
+    const arr = Object.keys(obj).map(k => [k, obj[k]]).sort((a,b) => b[1]-a[1]).slice(0,6);
+    if(!arr.length) return '<p class="h-sub">Nothing recorded yet.</p>';
+    const max = arr[0][1] || 1;
+    return '<div class="bars">' + arr.map(function(r){
+      return '<div class="barrow"><span class="lbl">' + esc(r[0]) + '</span>' +
+        '<span class="track"><i style="width:' + (r[1]/max*100) + '%"></i></span>' +
+        '<span class="val">' + r[1] + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  const st = streaks();
+  const weeks = weeklyBuckets(12);
+  const peak = Math.max.apply(null, weeks.map(x => x.count).concat([1]));
+  const lastWeek = weeks[weeks.length - 2] ? weeks[weeks.length - 2].count : 0;
+  const thisWeek = weeks[weeks.length - 1].count;
+  const delta = thisWeek - lastWeek;
+  const bd = busiestDay();
+
+  const sparkBars = weeks.map(function(wk){
+    const h = Math.max(3, Math.round(wk.count / peak * 100));
+    return '<div class="' + (wk.count ? 'hot' : '') + '" style="height:' + h + '%" ' +
+      'title="' + wk.count + ' episodes"></div>';
+  }).join('');
+
+  const facts = [];
+  if(st.current > 1) facts.push(['🔥', 'You have watched something ' + st.current + ' days running.']);
+  if(mins > 1440) facts.push(['⏳', 'That is ' + humanTime(mins) + ' of your life. No regrets.']);
+  if(bd) facts.push(['📅', bd.name + ' is your biggest viewing day — ' + bd.count + ' episodes logged.']);
+  if(delta > 0 && lastWeek > 0) facts.push(['📈', 'You are ' + delta + ' episodes ahead of last week.']);
+  else if(delta < 0 && thisWeek > 0) facts.push(['📉', Math.abs(delta) + ' fewer than last week. Slow week.']);
+  if(remaining > 0) facts.push(['🎯', remaining + ' episodes stand between you and a clean slate.']);
+  if(by('done') >= 3) facts.push(['🏆', 'You have finished ' + by('done') + ' series start to finish.']);
+
+  mainEl.innerHTML = '<div class="view">' +
+    '<p class="h-eyebrow">Your viewing</p><h1 class="h-title">Statistics.</h1>' +
+
+    '<div class="sect" style="margin-top:22px">' +
+      '<div class="streak"><span class="flame">' + (st.current > 0 ? '🔥' : '🌙') + '</span>' +
+        '<div><b>' + st.current + (st.current === 1 ? ' day' : ' days') + '</b>' +
+        '<span>' + (st.current > 0 ? 'Current streak · best ever ' + st.longest : 'No streak going — watch something tonight') +
+        '</span></div></div>' +
+      '<div class="statgrid">' +
+        '<div class="statcard accent"><b>' + eps + '</b><span>Episodes watched</span></div>' +
+        '<div class="statcard"><b>' + fmtRun(mins) + '</b><span>Total time</span></div>' +
+        '<div class="statcard"><b>' + remaining + '</b><span>Episodes left</span></div>' +
+        '<div class="statcard"><b>' + overall + '%</b><span>Overall complete</span></div>' +
+      '</div></div>' +
+
+    '<div class="sect"><div class="sect-head"><h2 class="sect-title">Last 12 weeks</h2></div>' +
+      '<div class="statcard">' +
+        '<div class="spark">' + sparkBars + '</div>' +
+        '<div class="sparkx"><span>12 weeks ago</span><span>this week</span></div>' +
+      '</div>' +
+      '<div class="statgrid" style="margin-top:10px">' +
+        '<div class="statcard"><b>' + thisWeek + '</b><span>This week</span></div>' +
+        '<div class="statcard"><b>' + month + '</b><span>This month</span></div>' +
+        '<div class="statcard"><b>' + st.activeDays + '</b><span>Days watched ever</span></div>' +
+        '<div class="statcard"><b>' + st.longest + '</b><span>Longest streak</span></div>' +
+      '</div></div>' +
+
+    (facts.length ? '<div class="sect"><div class="sect-head"><h2 class="sect-title">Fun facts</h2></div>' +
+      facts.map(f => '<div class="funfact"><span class="em">' + f[0] + '</span><span>' + esc(f[1]) + '</span></div>').join('') +
+      '</div>' : '') +
+    '<div class="sect"><div class="sect-head"><h2 class="sect-title">Library breakdown</h2></div>' +
+      '<div class="statgrid">' +
+        '<div class="statcard"><b>' + shows.length + '</b><span>Total series</span></div>' +
+        '<div class="statcard"><b>' + by('watching') + '</b><span>Watching</span></div>' +
+        '<div class="statcard"><b>' + by('done') + '</b><span>Completed</span></div>' +
+        '<div class="statcard"><b>' + by('hold') + '</b><span>On hold</span></div>' +
+      '</div></div>' +
+    '<div class="sect"><div class="sect-head"><h2 class="sect-title">Episodes by platform</h2></div>' +
+      bars(byPlat) + '</div>' +
+    '<div class="sect"><div class="sect-head"><h2 class="sect-title">Episodes by genre</h2></div>' +
+      bars(byGenre) + '</div>' +
+  '</div>';
+}
+
+
+
+/* ═══════════════════════════════════════════════════════════
+   DISCOVER — genre-affinity recommendations
+
+   TVmaze has no "similar shows" endpoint, so this builds a local
+   corpus from its show index (a few pages, cached for 30 days)
+   and scores each candidate on genre overlap with what you have
+   actually watched, weighted by episodes watched, nudged by rating.
+   It is taste-by-genre, not collaborative filtering — good at
+   "you liked a sitcom, here are the best other sitcoms".
+   ═══════════════════════════════════════════════════════════ */
+const CORPUS_KEY = 'spine-corpus-v1';
+const CORPUS_PAGES = 4;          /* 250 shows per page */
+const CORPUS_TTL = 30 * DAY;
+let corpus = null, corpusLoading = false, corpusError = '';
+
+function readCorpus(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(CORPUS_KEY));
+    if(raw && raw.at && (Date.now() - raw.at) < CORPUS_TTL && raw.shows && raw.shows.length) return raw.shows;
+  } catch(e){}
+  return null;
+}
+
+async function loadCorpus(){
+  const cached = readCorpus();
+  if(cached){ corpus = cached; return corpus; }
+  corpusLoading = true; corpusError = '';
+  if(route.name === 'discover') viewDiscover();
+  try {
+    const pages = [];
+    for(let i = 0; i < CORPUS_PAGES; i++) pages.push(api('/shows?page=' + i, 15000));
+    const results = await Promise.all(pages);
+    const slim = [];
+    results.forEach(function(list){
+      (list || []).forEach(function(s){
+        if(!s.genres || !s.genres.length) return;           /* ungenred rows can't be scored */
+        if(!s.rating || !s.rating.average) return;          /* nor unrated ones */
+        slim.push({
+          id: s.id, name: s.name,
+          image: s.image ? s.image.medium : null,
+          genres: s.genres,
+          rating: s.rating.average,
+          premiered: s.premiered || '',
+          status: s.status || '',
+          summary: strip(s.summary || '').slice(0, 180)
+        });
+      });
+    });
+    corpus = slim;
+    try { localStorage.setItem(CORPUS_KEY, JSON.stringify({ at: Date.now(), shows: slim })); }
+    catch(e){ console.warn('corpus too large to cache', e); }
+  } catch(e){
+    corpusError = apiMessage(e);
+  }
+  corpusLoading = false;
+  if(route.name === 'discover') viewDiscover();
+  return corpus;
+}
+
+/* how much you like each genre, weighted by episodes actually watched */
+function genreProfile(){
+  const prof = {}; let any = false;
+  allShows().forEach(function(rec){
+    const pr = progress(rec.id);
+    if(!pr) return;
+    const weight = pr.done > 0 ? pr.done : (rec.favourite || rec.saved ? 1 : 0);
+    if(weight <= 0) return;
+    (rec.genres || []).forEach(function(g){
+      prof[g] = (prof[g] || 0) + weight;
+      any = true;
+    });
+  });
+  if(!any) return null;
+  const max = Math.max.apply(null, Object.keys(prof).map(k => prof[k]));
+  Object.keys(prof).forEach(k => prof[k] = prof[k] / max);   /* 0..1 */
+  return prof;
+}
+
+function recommendations(limit){
+  if(!corpus) return [];
+  const prof = genreProfile();
+  if(!prof) return [];
+  const seen = {};
+  allShows().forEach(s => seen[s.id] = true);
+  const topGenres = Object.keys(prof).sort((a,b) => prof[b] - prof[a]);
+
+  const scored = corpus.filter(c => !seen[c.id]).map(function(c){
+    let overlap = 0, matched = [];
+    c.genres.forEach(function(g){
+      if(prof[g]){ overlap += prof[g]; matched.push(g); }
+    });
+    if(!overlap) return null;
+    /* average the affinity so a 5-genre show isn't automatically ahead of a focused one */
+    const affinity = overlap / Math.sqrt(c.genres.length);
+    const score = affinity * (0.55 + (c.rating / 10) * 0.45);
+    return { show: c, score: score, matched: matched };
+  }).filter(Boolean);
+
+  scored.sort((a,b) => b.score - a.score);
+
+  /* which of your shows most explains this pick */
+  return scored.slice(0, limit || 24).map(function(r){
+    let best = null, bestOverlap = 0;
+    allShows().forEach(function(rec){
+      const pr = progress(rec.id);
+      if(!pr || pr.done === 0) return;
+      const shared = (rec.genres || []).filter(g => r.matched.indexOf(g) > -1).length;
+      if(shared > bestOverlap){ bestOverlap = shared; best = rec; }
+    });
+    r.because = best;
+    return r;
+  });
+}
+
+function viewDiscover(){
+  const prof = genreProfile();
+
+  if(!prof){
+    mainEl.innerHTML = '<div class="view"><p class="h-eyebrow">Discover</p>' +
+      '<h1 class="h-title">Find your next show.</h1>' +
+      emptyState('🎭', 'Watch something first',
+        'Mark a few episodes and this page will suggest shows that match the genres you actually watch.',
+        { id:'ctaAdd3', label:'Add a series' }) + '</div>';
+    const b = document.getElementById('ctaAdd3'); if(b) b.onclick = openAddSheet;
+    return;
+  }
+
+  const topGenres = Object.keys(prof).sort((a,b) => prof[b] - prof[a]).slice(0,5);
+  let html = '<div class="view"><p class="h-eyebrow">Discover</p>' +
+    '<h1 class="h-title">Because you watch ' + esc(topGenres[0].toLowerCase()) + '.</h1>' +
+    '<p class="h-sub">Matched on the genres you spend the most episodes in.</p>' +
+    '<div class="chiprow" style="margin-top:16px">' +
+      topGenres.map(g => '<span class="chip">' + esc(g) +
+        '<span class="n">' + Math.round(prof[g] * 100) + '</span></span>').join('') +
+    '</div>';
+
+  if(corpusLoading){
+    html += '<p class="hint">Building your recommendation pool…</p>' + skeletonCards(4) + '</div>';
+    mainEl.innerHTML = html;
+    return;
+  }
+  if(!corpus){
+    html += (corpusError
+      ? '<p class="error">' + esc(corpusError) + '</p>'
+      : '<p class="h-sub">Fetch a pool of shows to match against — about 1000 titles, cached for a month.</p>') +
+      '<button class="btn primary wide" id="btnLoadCorpus" style="margin-top:14px">' +
+      (corpusError ? 'Try again' : 'Load recommendations') + '</button></div>';
+    mainEl.innerHTML = html;
+    document.getElementById('btnLoadCorpus').onclick = loadCorpus;
+    return;
+  }
+
+  const recs = recommendations(24);
+  if(!recs.length){
+    html += emptyState('🤷', 'Nothing new to suggest',
+      'Everything matching your genres is already in your library. Try adding a show from a new genre.') + '</div>';
+    mainEl.innerHTML = html;
+    return;
+  }
+
+  html += '<div class="sect">' + recs.map(function(r){
+    const c = r.show;
+    return '<div class="recwrap">' +
+      (c.image
+        ? '<img class="recposter" src="' + esc(c.image) + '" alt="" loading="lazy">'
+        : '<div class="recposter ph">' + esc(c.name.charAt(0)) + '</div>') +
+      '<div class="recbody">' +
+        '<h4>' + esc(c.name) + '</h4>' +
+        '<div class="mono">' + (c.premiered ? c.premiered.slice(0,4) : '—') +
+          ' · ★ ' + c.rating + ' · ' + esc(c.genres.slice(0,2).join(', ')) + '</div>' +
+        (r.because ? '<div class="recwhy">Because you watch ' + esc(r.because.name) + '</div>' : '') +
+        (c.summary ? '<div class="recsum">' + esc(c.summary) + '…</div>' : '') +
+        '<button class="btn sm" data-add="' + c.id + '" style="align-self:flex-start;margin-top:2px">' +
+          'Add to library</button>' +
+      '</div></div>';
+  }).join('') + '</div>';
+
+  html += '<button class="btn wide" id="btnRefreshCorpus" style="margin-top:8px">Refresh the pool</button></div>';
+  mainEl.innerHTML = html;
+  document.getElementById('btnRefreshCorpus').onclick = function(){
+    localStorage.removeItem(CORPUS_KEY); corpus = null; loadCorpus();
+  };
+}
+
+/* ---------- SETTINGS ---------- */
+function accountSection(){
+  if(!window.__fb && !fb){
+    return '<div class="sect"><div class="sect-head"><h2 class="sect-title">Sync</h2></div>' +
+      '<p class="h-sub">Cloud sync isn\'t configured yet — this copy is running local-only. ' +
+        'Add your Firebase config to the file to enable sign-in and cross-device sync.</p></div>';
+  }
+  if(cloudBusy){
+    return '<div class="sect"><div class="sect-head"><h2 class="sect-title">Sync</h2></div>' +
+      '<div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:40%"></div></div>';
+  }
+  if(cloudUser && needsHouseholdSetup){
+    return '<div class="sect"><div class="sect-head"><h2 class="sect-title">Set up sharing</h2></div>' +
+      '<p class="h-sub" style="margin:0 0 14px">' + esc(cloudUser.email) + ' is signed in. ' +
+        'Join your partner\'s shared library with their invite code, or start a new one.</p>' +
+      '<input class="field" id="joinCode" placeholder="Invite code (e.g. K3F9QX)" ' +
+        'autocapitalize="characters" autocomplete="off" style="margin-bottom:9px">' +
+      '<button class="btn primary wide" id="btnJoinHH">Join with this code</button>' +
+      '<div style="text-align:center;margin:14px 0;color:var(--muted);font-size:12px">— or —</div>' +
+      '<button class="btn wide" id="btnCreateHH">' +
+        (hasLegacyData ? "Start a new household with what's already tracked here" : 'Start a new household') +
+      '</button></div>';
+  }
+  if(cloudUser && householdId){
+    const memberRows = Object.keys(householdMembers).map(function(uid){
+      const m = householdMembers[uid], you = cloudUser && uid === cloudUser.uid;
+      return '<div class="prow"><span class="stat-dot" style="background:var(--done)"></span>' +
+        '<span style="flex:1;font-size:14px">' + esc(m.email || 'Member') + (you ? ' (you)' : '') + '</span></div>';
+    }).join('');
+    return '<div class="sect"><div class="sect-head"><h2 class="sect-title">Sync</h2></div>' +
+      '<div class="prow"><span class="stat-dot" style="background:var(--done)"></span>' +
+        '<span style="flex:1;font-size:14px">' + esc(cloudUser.email) + '</span>' +
+        '<button class="btn sm" id="btnSignOut">Sign out</button></div>' +
+      '<label class="lbl">Shared with</label>' + memberRows +
+      (inviteCode
+        ? '<div class="prow"><span style="flex:1;font-family:\'IBM Plex Mono\',monospace;font-size:15px;letter-spacing:.08em">' +
+            esc(inviteCode) + '</span><button class="btn sm" id="btnCopyInvite">Copy</button></div>' +
+          '<p class="h-sub" style="margin-top:8px">Share this code — your partner enters it on their own sign-up.</p>'
+        : '<button class="btn wide" id="btnInvite" style="margin-top:6px">Invite your partner</button>'
+      ) +
+    '</div>';
+  }
+  return '<div class="sect"><div class="sect-head"><h2 class="sect-title">Sync</h2></div>' +
+    '<p class="h-sub" style="margin:0 0 14px">Sign in to access this library from your phone, laptop, ' +
+      'or any browser. Free, and this device keeps working offline either way.</p>' +
+    '<input class="field" id="authEmail" type="email" placeholder="Email" autocomplete="email" style="margin-bottom:9px">' +
+    '<input class="field" id="authPw" type="password" placeholder="Password" autocomplete="current-password">' +
+    '<div style="display:flex;gap:9px;margin-top:11px">' +
+      '<button class="btn primary" id="btnSignIn" style="flex:1">Sign in</button>' +
+      '<button class="btn" id="btnSignUp" style="flex:1">Create account</button>' +
+    '</div></div>';
+}
+
+function viewSettings(){
+  const theme = db.prefs.theme || 'system';
+  mainEl.innerHTML = '<div class="view">' +
+    '<p class="h-eyebrow">Preferences</p><h1 class="h-title">Settings.</h1>' +
+    accountSection() +
+
+    '<div class="sect"><div class="sect-head"><h2 class="sect-title">Appearance</h2></div>' +
+      '<div class="chiprow" style="margin-bottom:0">' +
+        ['system','light','dark'].map(t => '<button class="chip' + (theme===t?' on':'') +
+          '" data-settheme="' + t + '">' + t.charAt(0).toUpperCase() + t.slice(1) + '</button>').join('') +
+      '</div></div>' +
+
+    '<div class="sect"><div class="sect-head"><h2 class="sect-title">Default sort</h2></div>' +
+      '<select class="field" id="defSort">' +
+        [['recent','Recently active'],['watched','Recently watched'],['added','Recently added'],
+         ['progress','Most complete'],['least','Least complete'],['az','A–Z']]
+        .map(o => '<option value="' + o[0] + '"' + (db.prefs.sort===o[0]?' selected':'') + '>' + o[1] + '</option>').join('') +
+      '</select></div>' +
+
+    '<div class="sect"><div class="sect-head"><h2 class="sect-title">Streaming platforms</h2></div>' +
+      '<p class="h-sub" style="margin:0 0 14px">Reorder, rename, recolour, or switch off the ones you ' +
+        'do not subscribe to. Inactive platforms stay assigned but drop out of the picker.</p>' +
+      '<div id="platList">' + sortedPlatforms().map(platformRow).join('') + '</div>' +
+      '<div style="display:flex;gap:9px;align-items:center;margin-top:12px">' +
+        '<input type="color" id="npColor" value="#FFB454" class="prow" style="width:44px;height:44px;padding:0;margin:0" aria-label="Colour">' +
+        '<input type="text" class="field" id="npName" placeholder="Add a platform…" style="flex:1">' +
+        '<button class="btn primary" id="npAdd">Add</button>' +
+      '</div>' +
+      '<button class="btn wide" id="npRestore" style="margin-top:10px">Restore missing defaults</button>' +
+    '</div>' +
+
+    '<div class="sect"><div class="sect-head"><h2 class="sect-title">Data</h2></div>' +
+      '<p class="h-sub" style="margin:0 0 14px">Everything lives in this browser only. Export regularly — ' +
+        'clearing site data will wipe your history.</p>' +
+      '<button class="btn wide" id="btnExport">' + ic('down','sm') + 'Export my data (JSON)</button>' +
+      '<button class="btn wide" id="btnImport" style="margin-top:9px">' + ic('up','sm') + 'Import from a backup</button>' +
+      '<input type="file" id="fileIn" accept="application/json,.json" style="display:none">' +
+      '<button class="btn wide danger" id="btnWipe" style="margin-top:9px">' + ic('trash','sm') + 'Erase everything</button>' +
+    '</div>' +
+
+    '<p class="h-sub" style="margin-top:30px;text-align:center">Series data from TVmaze. ' +
+      'SPINE v3 · ' + allShows().length + ' series tracked</p>' +
+  '</div>';
+
+  document.getElementById('defSort').onchange = function(){
+    db.prefs.sort = this.value; libSort = this.value; save(); toast('Default sort updated');
+  };
+  document.getElementById('npAdd').onclick = addPlatform;
+  document.getElementById('npName').addEventListener('keydown', function(e){
+    if(e.key === 'Enter') addPlatform();
+  });
+  document.getElementById('npRestore').onclick = function(){
+    let n = 0;
+    DEFAULT_PLATFORMS.forEach(function(d){
+      if(!db.platforms.some(p => p.id === d.id)){
+        db.platforms.push(Object.assign({ active:true, order: db.platforms.length }, d)); n++;
+      }
+    });
+    save(); viewSettings();
+    toast(n ? n + ' platform' + (n>1?'s':'') + ' restored' : 'Nothing was missing');
+  };
+  document.getElementById('btnExport').onclick = exportData;
+  document.getElementById('btnImport').onclick = () => document.getElementById('fileIn').click();
+  document.getElementById('fileIn').onchange = importData;
+  document.getElementById('btnWipe').onclick = function(){
+    if(!confirm('Erase every series, all watch history and your platform list? This cannot be undone.')) return;
+    if(!confirm('Really erase everything? Export a backup first if you are unsure.')) return;
+    localStorage.removeItem(K3);
+    location.reload();
+  };
+
+  const so = document.getElementById('btnSignOut');
+  if(so) so.onclick = doSignOut;
+
+  const jhh = document.getElementById('btnJoinHH');
+  if(jhh) jhh.onclick = handleJoinHousehold;
+  const chh = document.getElementById('btnCreateHH');
+  if(chh) chh.onclick = handleCreateHousehold;
+
+  const invBtn = document.getElementById('btnInvite');
+  if(invBtn) invBtn.onclick = async function(){
+    invBtn.textContent = 'Generating…';
+    try { inviteCode = await generateInvite(); viewSettings(); }
+    catch(e){ toast("Couldn't create an invite code"); invBtn.textContent = 'Invite your partner'; }
+  };
+  const cpBtn = document.getElementById('btnCopyInvite');
+  if(cpBtn) cpBtn.onclick = function(){
+    if(navigator.clipboard) navigator.clipboard.writeText(inviteCode).then(() => toast('Code copied'));
+  };
+
+  const si = document.getElementById('btnSignIn'), su = document.getElementById('btnSignUp');
+  if(si && su){
+    const run = function(action){
+      const email = document.getElementById('authEmail').value.trim();
+      const pw = document.getElementById('authPw').value;
+      if(!email || !pw){ toast('Enter an email and password'); return; }
+      action(email, pw);
+    };
+    si.onclick = () => run(doSignIn);
+    su.onclick = () => run(doSignUp);
+    document.getElementById('authPw').addEventListener('keydown', function(e){
+      if(e.key === 'Enter') run(doSignIn);
+    });
+  }
+}
+
+function platformRow(p){
+  const n = platformUsage(p.id);
+  return '<div class="prow' + (p.active === false ? ' off' : '') + '" data-prow="' + esc(p.id) + '">' +
+    '<div style="display:flex;flex-direction:column;gap:1px;flex:none">' +
+      '<button class="mv" data-pmove="' + esc(p.id) + ':-1" aria-label="Move up">' + ic('arrowU','sm') + '</button>' +
+      '<button class="mv" data-pmove="' + esc(p.id) + ':1" aria-label="Move down">' + ic('arrowD','sm') + '</button>' +
+    '</div>' +
+    '<input type="color" value="' + esc(p.color) + '" data-pcolor="' + esc(p.id) + '" aria-label="Colour for ' + esc(p.name) + '">' +
+    '<input type="text" value="' + esc(p.name) + '" data-pname="' + esc(p.id) + '" aria-label="Platform name">' +
+    '<span class="mono" style="flex:none">' + (n ? n : '—') + '</span>' +
+    '<button class="switch' + (p.active !== false ? ' on' : '') + '" data-ptoggle="' + esc(p.id) + '" ' +
+      'role="switch" aria-checked="' + (p.active !== false) + '" aria-label="Active"></button>' +
+    '<button class="mv" data-pdel="' + esc(p.id) + '" aria-label="Delete ' + esc(p.name) + '">' + ic('trash','sm') + '</button>' +
+  '</div>';
+}
+
+function addPlatform(){
+  const el = document.getElementById('npName');
+  const name = el.value.trim();
+  if(!name){ el.focus(); return; }
+  if(db.platforms.some(p => p.name.toLowerCase() === name.toLowerCase())){
+    toast('"' + name + '" is already in your list'); el.select(); return;
+  }
+  db.platforms.push({
+    id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2,5),
+    name: name, color: document.getElementById('npColor').value,
+    active: true, order: db.platforms.length
+  });
+  save(); viewSettings(); toast('"' + name + '" added');
+}
+
+/* deleting a platform that is in use asks what to do with those series (§33) */
+function deletePlatform(pid){
+  const p = db.platforms.find(x => x.id === pid);
+  if(!p) return;
+  const users = allShows().filter(s => s.platform === pid);
+  if(!users.length){
+    if(!confirm('Delete "' + p.name + '"?')) return;
+    db.platforms = db.platforms.filter(x => x.id !== pid);
+    save(); viewSettings(); toast('"' + p.name + '" deleted');
+    return;
+  }
+  const opts = activePlatforms().filter(x => x.id !== pid);
+  openSheet('Delete "' + p.name + '"?',
+    '<p class="h-sub" style="margin:0 0 4px">' + users.length + ' series ' +
+      (users.length === 1 ? 'is' : 'are') + ' assigned to this platform. What should happen to ' +
+      (users.length === 1 ? 'it' : 'them') + '?</p>' +
+    '<label class="lbl">Reassign to</label>' +
+    '<select class="field" id="reassign"><option value="">— leave them untagged —</option>' +
+      opts.map(o => '<option value="' + esc(o.id) + '">' + esc(o.name) + '</option>').join('') +
+    '</select>' +
+    '<button class="btn danger wide" id="doDel" style="margin-top:16px">Delete platform</button>' +
+    '<button class="btn wide" id="noDel" style="margin-top:9px">Cancel</button>',
+    function(){
+      document.getElementById('noDel').onclick = closeSheet;
+      document.getElementById('doDel').onclick = function(){
+        const to = document.getElementById('reassign').value;
+        users.forEach(function(s){ if(to) s.platform = to; else delete s.platform; });
+        db.platforms = db.platforms.filter(x => x.id !== pid);
+        save(); closeSheet(); viewSettings();
+        toast(to ? users.length + ' series moved' : users.length + ' series left untagged');
+      };
+    });
+}
+
+/* ---------- export / import ---------- */
+function exportData(){
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'spine-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  toast('Backup downloaded');
+}
+function importData(e){
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  const fr = new FileReader();
+  fr.onload = function(){
+    let data;
+    try { data = JSON.parse(fr.result); }
+    catch(err){ toast("That file isn't valid JSON"); return; }
+    if(!data || !data.shows){ toast("That doesn't look like a SPINE backup"); return; }
+    const incoming = Object.keys(data.shows).length;
+    if(!confirm('Merge ' + incoming + ' series from this backup into your library?\n\n' +
+                'Existing series keep whichever watch history is larger.')) return;
+    /* merge, never clobber */
+    Object.keys(data.shows).forEach(function(id){
+      if(!db.shows[id]) db.shows[id] = data.shows[id];
+    });
+    Object.keys(data.watched || {}).forEach(function(sid){
+      const mine = db.watched[sid] || {};
+      const theirs = data.watched[sid] || {};
+      db.watched[sid] = Object.assign({}, theirs, mine);
+    });
+    (data.platforms || []).forEach(function(p){
+      if(!db.platforms.some(x => x.id === p.id)) db.platforms.push(p);
+    });
+    save(); viewSettings(); toast('Backup merged — ' + incoming + ' series processed');
+  };
+  fr.readAsText(file);
+  e.target.value = '';
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   ADD SERIES — TVmaze type-ahead, kept distinct from library search
+   ═══════════════════════════════════════════════════════════ */
+function openAddSheet(){
+  openSheet('Add a series',
+    '<input class="field" id="addQ" placeholder="Search TVmaze…" autocomplete="off" ' +
+      'autocapitalize="words" enterkeyhint="search">' +
+    '<p class="h-sub" style="margin:9px 0 0;font-size:12.5px">Searching TVmaze, not your library.</p>' +
+    '<div id="addRes" style="margin-top:14px;min-height:80px"></div>',
+    function(){
+      const q = document.getElementById('addQ');
+      const box = document.getElementById('addRes');
+      const run = debounce(async function(){
+        const term = q.value.trim();
+        if(term.length < 2){ box.innerHTML = ''; return; }
+        box.innerHTML = skeletonCards(2);
+        try {
+          const list = await searchShows(term);
+          if(q.value.trim() !== term) return;
+          box.innerHTML = list.length ? list.slice(0,10).map(addResult).join('')
+            : '<p class="h-sub">No series matched. Try fewer words.</p>';
+        } catch(err){
+          box.innerHTML = '<p class="h-sub">' + esc(apiMessage(err)) +
+            '</p><button class="btn sm" id="retryAdd" style="margin-top:10px">Try again</button>';
+          const r = document.getElementById('retryAdd'); if(r) r.onclick = run;
+        }
+      }, 350);
+      q.addEventListener('input', run);
+    });
+}
+function addResult(s){
+  const already = !!db.shows[s.id];
+  let sub = '';
+  if(already){
+    const p = progress(s.id), plat = platformOf(s.id);
+    sub = '<div class="ep-sub" style="color:var(--accent)">Already in your tracker · ' +
+      (plat ? esc(plat.name) + ' · ' : '') +
+      (p.next ? epCode(p.next[E_S], p.next[E_N]) + ' next' : STATUS[p.status].label) + '</div>';
+  } else {
+    sub = '<div class="ep-sub">' + (s.premiered ? s.premiered.slice(0,4) : '—') +
+      (s.rating && s.rating.average ? ' · ★ ' + s.rating.average : '') +
+      (s.genres && s.genres.length ? ' · ' + esc(s.genres.slice(0,2).join(', ')) : '') + '</div>';
+  }
+  return '<button class="ep" style="width:100%;padding:11px 4px" data-add="' + s.id + '">' +
+    poster(s.image && s.image.medium, s.name, 'sc-poster') +
+    '<div class="ep-main" style="align-self:center">' +
+      '<div class="ep-name">' + esc(s.name) + '</div>' + sub +
+      (already ? '' : '<span class="btn sm primary" style="margin-top:9px;pointer-events:none">Add</span>') +
+    '</div></button>';
+}
+
+async function addSeries(id){
+  if(db.shows[id]){ closeSheet(); go('show', id); return; }
+  const box = document.getElementById('addRes');
+  if(box) box.innerHTML = skeletonCards(1);
+  try {
+    const data = await fetchShow(id);
+    db.shows[id] = absorb(data);
+    db.shows[id].addedAt = Date.now();
+    save();
+    closeSheet();
+    go('show', id);
+    /* nudge them straight to the platform choice — that's step 2 of adding */
+    setTimeout(function(){
+      toast('"' + data.name + '" added — set a platform below');
+      const sel = document.getElementById('platSel');
+      if(sel) sel.scrollIntoView({behavior:'smooth', block:'center'});
+    }, 320);
+  } catch(err){
+    if(box) box.innerHTML = '<p class="h-sub">' + esc(apiMessage(err)) + '</p>';
+    else toast(apiMessage(err));
+  }
+}
+
+/* refresh metadata without disturbing progress (§34) */
+async function refreshSeries(id){
+  const rec = db.shows[id];
+  if(!rec) return;
+  toast('Refreshing from TVmaze…');
+  delete memo.show[id];
+  try {
+    const data = await fetchShow(id);
+    db.shows[id] = absorb(data, rec);
+    save();
+    if(route.name === 'show') viewShow(id);
+    toast('Series data updated');
+  } catch(err){ toast(apiMessage(err)); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ACTIONS ON PROGRESS
+   ═══════════════════════════════════════════════════════════ */
+let picked = new Set(), selSeason = null;
+
+function checkCompletion(id, before){
+  const p = progress(id);
+  if(p.status === 'done' && before !== 'done'){
+    db.shows[id].completedAt = Date.now();
+    save();
+    toast('🎉 ' + db.shows[id].name + ' complete!');
+    return true;
+  }
+  if(p.status !== 'done' && db.shows[id].completedAt){
+    db.shows[id].completedAt = null; save();
+  }
+  return false;
+}
+
+function markEpisode(showId, epId, on, silent){
+  const rec = db.shows[showId];
+  if(!rec) return;
+  const before = progress(showId).status;
+  const w = watchedOf(showId);
+  const had = w[epId];
+  if(on) w[epId] = Date.now(); else delete w[epId];
+  rec.touched = Date.now();
+  if(rec.hold && on){ rec.hold = null; }
+  save();
+  rerender();
+  const celebrated = checkCompletion(showId, before);
+  if(silent || celebrated) return;
+  const ep = (rec.eps||[]).find(e => String(e[E_ID]) === String(epId));
+  const code = ep ? epCode(ep[E_S], ep[E_N]) : 'Episode';
+  toast(code + (on ? ' marked watched' : ' marked unwatched'), function(){
+    if(on){ if(had) w[epId] = had; else delete w[epId]; }
+    else { w[epId] = had || Date.now(); }
+    save(); rerender();
+  });
+}
+
+function markMany(showId, epIds, on, label){
+  const rec = db.shows[showId];
+  const before = progress(showId).status;
+  const w = watchedOf(showId);
+  const snapshot = Object.assign({}, w);
+  epIds.forEach(function(eid){ if(on) w[eid] = Date.now(); else delete w[eid]; });
+  rec.touched = Date.now();
+  if(rec.hold && on) rec.hold = null;
+  save(); rerender();
+  const celebrated = checkCompletion(showId, before);
+  if(celebrated) return;
+  toast(label || (epIds.length + ' episodes updated'), function(){
+    db.watched[showId] = snapshot;
+    save(); rerender();
+  });
+}
+
+function stepProgress(id, dir){
+  const p = progress(id);
+  if(dir > 0 && p.next) markEpisode(id, p.next[E_ID], true);
+  else if(dir < 0 && p.last) markEpisode(id, p.last[E_ID], false);
+}
+
+/* ═══════════ quick-action sheet (§25) ═══════════ */
+function openMenu(id){
+  const rec = db.shows[id], p = progress(id);
+  const item = (attr, icon, label, cls) =>
+    '<button class="sheet-item ' + (cls||'') + '" ' + attr + '>' + ic(icon) + '<span>' + label + '</span></button>';
+
+  let html = '';
+  if(p.next) html += item('data-mark="' + id + ':' + p.next[E_ID] + '" data-close="1"', 'check',
+    'Mark ' + epCode(p.next[E_S], p.next[E_N]) + ' watched');
+  html += item('data-open="' + id + '" data-close="1"', 'grid', 'Open details');
+  html += '<div class="sheet-group">Organise</div>';
+  html += item('data-fav="' + id + '" data-close="1"', 'star',
+    rec.favourite ? 'Remove from favourites' : 'Add to favourites');
+  html += item('data-pin="' + id + '" data-close="1"', 'pin',
+    rec.pinned ? 'Unpin from top' : 'Pin to top');
+  html += item('data-prio="' + id + '"', 'up', 'Priority: ' +
+    (['Normal','Medium','High'][rec.priority || 0]));
+  html += item('data-note="' + id + '"', 'note', rec.note ? 'Edit note' : 'Add a note');
+  html += item('data-platsheet="' + id + '"', 'play', 'Change platform');
+  html += '<div class="sheet-group">Status</div>';
+  if(rec.hold) html += item('data-resume="' + id + '" data-close="1"', 'play', 'Resume watching');
+  else html += item('data-hold="' + id + '"', 'pause', 'Put on hold');
+  if(p.status !== 'done') html += item('data-complete="' + id + '" data-close="1"', 'check', 'Mark series completed');
+  else html += item('data-rewatch="' + id + '" data-close="1"', 'refresh', 'Watch again');
+  html += '<div class="sheet-group">Manage</div>';
+  html += item('data-refresh="' + id + '" data-close="1"', 'refresh', 'Refresh from TVmaze');
+  html += item('data-del="' + id + '"', 'trash', 'Remove from library', 'danger');
+  openSheet(rec.name, html);
+}
+
+function openHoldSheet(id){
+  const rec = db.shows[id], p = progress(id);
+  openSheet('Put on hold',
+    '<p class="h-sub" style="margin:0 0 4px">' + esc(rec.name) +
+      (p.last ? ' · last watched ' + epCode(p.last[E_S], p.last[E_N]) : '') + '</p>' +
+    '<label class="lbl" for="holdWhy">Why? (optional)</label>' +
+    '<textarea class="field" id="holdWhy" placeholder="Season got slow, waiting for the next batch…"></textarea>' +
+    '<button class="btn primary wide" id="holdGo" style="margin-top:14px">Put on hold</button>',
+    function(){
+      document.getElementById('holdGo').onclick = function(){
+        rec.hold = { since: Date.now(), reason: document.getElementById('holdWhy').value.trim() };
+        rec.touched = Date.now(); save(); closeSheet(); rerender();
+        toast(rec.name + ' put on hold', function(){ rec.hold = null; save(); rerender(); });
+      };
+    });
+}
+function openNoteSheet(id){
+  const rec = db.shows[id];
+  openSheet('Note', '<label class="lbl" for="noteBox">Private note for ' + esc(rec.name) + '</label>' +
+    '<textarea class="field" id="noteBox" placeholder="Watching this with family…">' + esc(rec.note || '') + '</textarea>' +
+    '<button class="btn primary wide" id="noteGo" style="margin-top:14px">Save note</button>',
+    function(){
+      document.getElementById('noteGo').onclick = function(){
+        rec.note = document.getElementById('noteBox').value.trim();
+        save(); closeSheet(); rerender(); toast('Note saved');
+      };
+    });
+}
+function openPlatformSheet(id){
+  const rec = db.shows[id];
+  openSheet('Where do you watch it?',
+    activePlatforms().map(p => '<button class="sheet-item" data-pset="' + id + ':' + esc(p.id) + '">' +
+      '<i class="stat-dot" style="background:' + esc(p.color) + ';width:11px;height:11px"></i>' +
+      '<span>' + esc(p.name) + '</span>' +
+      (rec.platform === p.id ? '<span class="chk">' + ic('check','sm') + '</span>' : '') + '</button>').join('') +
+    '<button class="sheet-item" data-pset="' + id + ':"><span style="color:var(--muted)">Not set</span></button>');
+}
+function openFilterSheet(){
+  const genres = {};
+  allShows().forEach(s => (s.genres||[]).forEach(g => genres[g] = 1));
+  const gl = Object.keys(genres).sort();
+  openSheet('Filter &amp; sort',
+    '<label class="lbl">Platform</label>' +
+    '<select class="field" id="fPlat"><option value="">Any platform</option>' +
+      sortedPlatforms().map(p => '<option value="' + esc(p.id) + '"' +
+        (libFilter.platform===p.id?' selected':'') + '>' + esc(p.name) + '</option>').join('') + '</select>' +
+    '<label class="lbl">Genre</label>' +
+    '<select class="field" id="fGenre"><option value="">Any genre</option>' +
+      gl.map(g => '<option value="' + esc(g) + '"' + (libFilter.genre===g?' selected':'') + '>' + esc(g) + '</option>').join('') + '</select>' +
+    '<label class="lbl">Sort by</label>' +
+    '<select class="field" id="fSort">' +
+      [['recent','Recently active'],['watched','Recently watched'],['added','Recently added'],
+       ['progress','Most complete'],['least','Least complete'],['az','A–Z']]
+      .map(o => '<option value="' + o[0] + '"' + (libSort===o[0]?' selected':'') + '>' + o[1] + '</option>').join('') + '</select>' +
+    '<button class="sheet-item" id="fFav" style="margin-top:12px">' + ic('star') +
+      '<span>Favourites only</span>' + (libFilter.fav ? '<span class="chk">' + ic('check','sm') + '</span>' : '') + '</button>' +
+    '<button class="btn primary wide" id="fApply" style="margin-top:16px">Apply</button>' +
+    '<button class="btn wide" id="fClear" style="margin-top:9px">Clear all filters</button>',
+    function(){
+      document.getElementById('fFav').onclick = function(){
+        libFilter.fav = !libFilter.fav; closeSheet(); openFilterSheet();
+      };
+      document.getElementById('fApply').onclick = function(){
+        libFilter.platform = document.getElementById('fPlat').value;
+        libFilter.genre = document.getElementById('fGenre').value;
+        libSort = document.getElementById('fSort').value;
+        closeSheet(); viewLibrary();
+      };
+      document.getElementById('fClear').onclick = function(){
+        libFilter = { status:'all', platform:'', genre:'', fav:false };
+        findQuery = ''; libSort = db.prefs.sort || 'recent';
+        closeSheet(); viewLibrary();
+      };
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ROUTER + NAV
+   ═══════════════════════════════════════════════════════════ */
+const NAV = [
+  { id:'home',     label:'Home',     icon:'home'  },
+  { id:'library',  label:'Series',   icon:'grid'  },
+  { id:'upnext',   label:'Up next',  icon:'play'  },
+  { id:'discover', label:'Discover', icon:'star'  },
+  { id:'stats',    label:'Stats',    icon:'stats' }
+];
+function paintNav(){
+  const nav = document.getElementById('nav');
+  const brand = nav.querySelector('.navbrand');
+  nav.innerHTML = '';
+  if(brand) nav.appendChild(brand);
+  NAV.forEach(function(n){
+    const b = document.createElement('button');
+    b.className = route.name === n.id ? 'on' : '';
+    b.dataset.go = n.id;
+    b.setAttribute('aria-current', route.name === n.id ? 'page' : 'false');
+    b.innerHTML = ic(n.icon) + '<span>' + n.label + '</span>';
+    nav.appendChild(b);
+  });
+}
+function go(name, arg){
+  route = { name: name, arg: arg };
+  if(NAV.some(n => n.id === name)) db.prefs.lastTab = name;
+  picked.clear(); selSeason = null;
+  const stray = document.getElementById('bulkbar');
+  if(stray) stray.remove();   /* a selection made on the previous page must never linger over the next one */
+  paintNav(); rerender();
+  if(name !== 'show') window.scrollTo({ top:0 });
+}
+function rerender(){
+  switch(route.name){
+    case 'home':     viewHome(); break;
+    case 'library':  viewLibrary(); break;
+    case 'upnext':   viewUpNext(); break;
+    case 'stats':    viewStats(); break;
+    case 'discover': viewDiscover(); break;
+    case 'settings': viewSettings(); break;
+    case 'show':     viewShow(route.arg); break;
+    default:         viewHome();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EVENTS
+   ═══════════════════════════════════════════════════════════ */
+document.addEventListener('click', function(e){
+  const t = e.target.closest('[data-go],[data-open],[data-fav],[data-pin],[data-prio],[data-mark],' +
+    '[data-menu],[data-toggle],[data-sopen],[data-sall],[data-supto],[data-ssel],[data-tohere],' +
+    '[data-back],[data-step],[data-hold],[data-resume],[data-complete],[data-rewatch],[data-del],' +
+    '[data-refresh],[data-note],[data-platsheet],[data-pset],[data-add],[data-fstatus],[data-settheme],' +
+    '[data-pmove],[data-ptoggle],[data-pdel],[data-bulk],[data-close]');
+
+  /* episode multi-select swallows row taps first */
+  if(selSeason !== null){
+    const row = e.target.closest('.eprow[data-ep]');
+    if(row && Number(row.dataset.eps) === selSeason && (!t || t.dataset.toggle)){
+      const id = Number(row.dataset.ep);
+      if(picked.has(id)) picked.delete(id); else picked.add(id);
+      row.classList.toggle('picked', picked.has(id));
+      paintBulkBar();
+      return;
+    }
+  }
+  if(!t || t === document.documentElement || t === document.body) return;
+  const d = t.dataset;
+
+  if(d.go)    { closeSheet(); return go(d.go); }
+  if(d.back)  { return go(db.prefs.lastTab || 'home'); }
+  if(d.open)  { closeSheet(); return go('show', d.open); }
+  if(d.add)   { return addSeries(d.add); }
+
+  if(d.fav){
+    const r = db.shows[d.fav]; r.favourite = !r.favourite; r.touched = Date.now(); save();
+    if(d.close) closeSheet();
+    rerender(); toast(r.favourite ? 'Added to favourites' : 'Removed from favourites');
+    return;
+  }
+  if(d.pin){
+    const r = db.shows[d.pin]; r.pinned = !r.pinned; save();
+    if(d.close) closeSheet(); rerender();
+    toast(r.pinned ? 'Pinned to top' : 'Unpinned'); return;
+  }
+  if(d.prio){
+    const r = db.shows[d.prio]; r.priority = ((r.priority || 0) + 1) % 3; save();
+    openMenu(d.prio); rerender();
+    return;
+  }
+  if(d.note)      { return openNoteSheet(d.note); }
+  if(d.platsheet) { return openPlatformSheet(d.platsheet); }
+  if(d.pset){
+    const parts = d.pset.split(':');
+    const r = db.shows[parts[0]];
+    if(parts[1]) r.platform = parts[1]; else delete r.platform;
+    r.touched = Date.now(); save(); closeSheet(); rerender();
+    const p = platformOf(parts[0]);
+    toast(p ? 'Now on ' + p.name : 'Platform cleared');
+    return;
+  }
+  if(d.mark){
+    const parts = d.mark.split(':');
+    if(d.close) closeSheet();
+    return markEpisode(parts[0], Number(parts[1]), true);
+  }
+  if(d.menu)    { return openMenu(d.menu); }
+  if(d.hold)    { closeSheet(); return openHoldSheet(d.hold); }
+  if(d.resume){
+    const r = db.shows[d.resume]; const prev = r.hold;
+    r.hold = null; r.touched = Date.now(); save();
+    if(d.close) closeSheet();
+    rerender();
+    toast('Resumed ' + r.name, function(){ r.hold = prev; save(); rerender(); });
+    return;
+  }
+  if(d.complete){
+    const p = progress(d.complete);
+    const ids = p.eps.filter(e => e[E_S] !== 0 && hasAired(e[E_DATE])).map(e => e[E_ID]);
+    if(d.close) closeSheet();
+    return markMany(d.complete, ids, true, 'Marked as completed');
+  }
+  if(d.rewatch){
+    const r = db.shows[d.rewatch];
+    if(!confirm('Clear all watch progress for "' + r.name + '" and start over?')) return;
+    const snap = Object.assign({}, db.watched[d.rewatch] || {});
+    db.watched[d.rewatch] = {}; r.completedAt = null; r.touched = Date.now();
+    save(); if(d.close) closeSheet(); rerender();
+    toast('Starting over', function(){ db.watched[d.rewatch] = snap; save(); rerender(); });
+    return;
+  }
+  if(d.del){
+    const r = db.shows[d.del];
+    if(!confirm('Remove "' + r.name + '" and its watch history from your library?')) return;
+    delete db.shows[d.del]; delete db.watched[d.del];
+    save(); closeSheet(); go(db.prefs.lastTab || 'home');
+    toast('"' + r.name + '" removed'); return;
+  }
+  if(d.refresh)  { if(d.close) closeSheet(); return refreshSeries(d.refresh); }
+
+  /* ---- episode level ---- */
+  if(d.toggle){
+    const id = route.arg, epId = Number(d.toggle);
+    return markEpisode(id, epId, !watchedOf(id)[epId]);
+  }
+  if(d.sopen){
+    openSeasons[route.arg] = Number(d.sopen);
+    picked.clear(); selSeason = null;
+    const sb = document.getElementById('bulkbar'); if(sb) sb.remove();
+    return viewShow(route.arg);
+  }
+  if(d.sall){
+    const id = route.arg, k = Number(d.sall), w = watchedOf(id);
+    const eps = (db.shows[id].eps||[]).filter(e => e[E_S] === k);
+    const on = !eps.every(e => w[e[E_ID]]);
+    return markMany(id, eps.map(e => e[E_ID]), on,
+      on ? 'Season ' + k + ' marked watched' : 'Season ' + k + ' cleared');
+  }
+  if(d.supto || d.tohere){
+    const id = route.arg, target = Number(d.supto || d.tohere);
+    const eps = db.shows[id].eps || [];
+    const me = eps.find(e => e[E_ID] === target);
+    if(!me) return;
+    const ids = eps.filter(function(e){
+      if(e[E_S] === 0 && me[E_S] !== 0) return false;
+      if(e[E_S] > me[E_S]) return false;
+      return e[E_S] < me[E_S] || (e[E_N]||0) <= (me[E_N]||0);
+    }).map(e => e[E_ID]);
+    return markMany(id, ids, true, 'Marked ' + ids.length + ' episodes watched');
+  }
+  if(d.ssel){
+    const k = Number(d.ssel);
+    selSeason = (selSeason === k) ? null : k;
+    picked.clear();
+    viewShow(route.arg); paintBulkBar();
+    return;
+  }
+  if(d.bulk){
+    const id = route.arg;
+    if(d.bulk !== 'cancel') markMany(id, [...picked], d.bulk === 'on',
+      picked.size + ' episodes updated');
+    selSeason = null; picked.clear();
+    paintBulkBar(); if(d.bulk === 'cancel') viewShow(id);
+    return;
+  }
+  if(d.step)   { return stepProgress(route.arg, Number(d.step)); }
+  if(d.fstatus){ libFilter.status = d.fstatus; return viewLibrary(); }
+  if(d.settheme){ db.prefs.theme = d.settheme; save(); applyTheme(); return viewSettings(); }
+
+  /* ---- platform manager ---- */
+  if(d.pmove){
+    const parts = d.pmove.split(':'), dir = Number(parts[1]);
+    const list = sortedPlatforms();
+    const i = list.findIndex(p => p.id === parts[0]);
+    const j = i + dir;
+    if(j < 0 || j >= list.length) return;
+    const a = list[i].order; list[i].order = list[j].order; list[j].order = a;
+    save(); return viewSettings();
+  }
+  if(d.ptoggle){
+    const p = db.platforms.find(x => x.id === d.ptoggle);
+    p.active = p.active === false;
+    save(); viewSettings();
+    toast(p.name + (p.active ? ' enabled' : ' hidden from the picker'));
+    return;
+  }
+  if(d.pdel) { return deletePlatform(d.pdel); }
+  if(d.close){ return closeSheet(); }
+});
+
+/* bulk selection bar */
+function paintBulkBar(){
+  let bar = document.getElementById('bulkbar');
+  if(selSeason === null || picked.size === 0){ if(bar) bar.remove(); return; }
+  if(!bar){
+    bar = document.createElement('div');
+    bar.id = 'bulkbar'; bar.className = 'toast on';
+    document.body.appendChild(bar);
+  }
+  bar.innerHTML = '<span>' + picked.size + ' selected</span>' +
+    '<button data-bulk="on">Watched</button>' +
+    '<button data-bulk="off" style="color:var(--muted)">Clear</button>' +
+    '<button data-bulk="cancel" style="color:var(--muted)">Cancel</button>';
+}
+
+/* change events: platform dropdown + inline platform edits */
+document.addEventListener('change', function(e){
+  const el = e.target;
+  if(el.dataset.setplat){
+    const r = db.shows[el.dataset.setplat];
+    if(el.value) r.platform = el.value; else delete r.platform;
+    r.touched = Date.now(); save(); rerender();
+    const p = platformOf(el.dataset.setplat);
+    toast(p ? 'Now on ' + p.name : 'Platform cleared');
+  }
+  if(el.dataset.pcolor){
+    const p = db.platforms.find(x => x.id === el.dataset.pcolor);
+    if(p){ p.color = el.value; save(); }
+  }
+});
+document.addEventListener('input', function(e){
+  const el = e.target;
+  if(el.dataset.pname){
+    const p = db.platforms.find(x => x.id === el.dataset.pname);
+    if(p){ p.name = el.value; save(); }   /* series link by id, so renames just work */
+  }
+});
+
+/* top-bar buttons */
+document.getElementById('btnAdd').onclick = openAddSheet;
+document.getElementById('btnSettings').onclick = function(){ go('settings'); };
+document.getElementById('btnFind').onclick = function(){
+  go('library');
+  setTimeout(function(){
+    const s = document.getElementById('libSearch');
+    if(s){ s.focus(); s.scrollIntoView({block:'center'}); }
+  }, 80);
+};
+
+/* keyboard: / focuses search, a opens add */
+document.addEventListener('keydown', function(e){
+  if(e.target.matches('input,textarea,select')) return;
+  if(e.key === '/'){ e.preventDefault(); document.getElementById('btnFind').click(); }
+  if(e.key === 'a'){ e.preventDefault(); openAddSheet(); }
+});
+
+/* ═══════════ start ═══════════ */
+applyTheme();
+libSort = db.prefs.sort || 'recent';
+go(db.prefs.lastTab || 'home');
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     FIREBASE — paste your project's config below, then reload.
+     Get these six values from: Firebase console → ⚙ Project
+     settings → your web app → SDK setup and configuration.
+     Nothing else in this file needs to change.
+     ═══════════════════════════════════════════════════════════ -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js';
+  import {
+    getAuth, onAuthStateChanged,
+    createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut
+  } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js';
+  import {
+    getFirestore, doc, getDoc, setDoc, onSnapshot
+  } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey:            "AIzaSyCL6FTVmOomYflIOMt60O9zRxkoSTTh35U",
+    authDomain:         "series-tracker-f2e9b.firebaseapp.com",
+    projectId:          "series-tracker-f2e9b",
+    storageBucket:       "series-tracker-f2e9b.firebasestorage.app",
+    messagingSenderId:  "839587320841",
+    appId:              "1:839587320841:web:83462962a85a12bd6694d8"
+  };
+
+  if(firebaseConfig.apiKey.indexOf('PASTE_YOUR') === -1){
+    const app = initializeApp(firebaseConfig);
+    window.__fb = {
+      auth: getAuth(app), fs: getFirestore(app), doc, getDoc, setDoc, onSnapshot,
+      onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut
+    };
+    window.dispatchEvent(new Event('fb-ready'));
+  } else {
+    console.info('SPINE: Firebase config not set — running local-only. See the comment above this script.');
+  }
+
+</script>
+</body>
+</html>
