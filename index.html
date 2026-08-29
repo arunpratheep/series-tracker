@@ -471,7 +471,7 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
 const K3 = 'spine-v3', K2 = 'spine-v2';
 /* Bumped on every change. Shown in Settings so you can tell at a glance
    whether the version you're looking at is the one that was deployed. */
-const BUILD = 'b22 · detect-legacy-imdb';
+const BUILD = 'b23 · summary-tap';
 
 /* Optional. Get a free key at themoviedb.org → Settings → API.
    Leave as-is and the app simply keeps asking you to pick the platform
@@ -1410,11 +1410,11 @@ function viewHome(){
 
   /* summary strip */
   html += '<div class="summary-strip" style="margin-top:18px">' +
-    sumBox(shows.length, 'Total', null) +
-    sumBox(by('watching'), 'Watching', 'var(--watch)') +
-    sumBox(by('new'), 'Not started', 'var(--new)') +
-    sumBox(by('hold'), 'On hold', 'var(--hold)') +
-    sumBox(by('done'), 'Completed', 'var(--done)') +
+    sumBox(shows.length, 'Total', null, 'all') +
+    sumBox(by('watching'), 'Watching', 'var(--watch)', 'watching') +
+    sumBox(by('new'), 'Not started', 'var(--new)', 'new') +
+    sumBox(by('hold'), 'On hold', 'var(--hold)', 'hold') +
+    sumBox(by('done'), 'Completed', 'var(--done)', 'done') +
   '</div>';
 
   /* WATCH NEXT — the headline section */
@@ -1466,9 +1466,11 @@ function viewHome(){
   html += '</div>';
   mainEl.innerHTML = html;
 }
-function sumBox(n, label, color){
-  return '<div class="sumbox"><b>' + n + '</b><span>' +
-    (color ? '<i class="stat-dot" style="background:' + color + '"></i>' : '') + esc(label) + '</span></div>';
+/* status is a libFilter.status key — tapping a box opens the library
+   already filtered to it, which is what the number is promising. */
+function sumBox(n, label, color, status){
+  return '<button class="sumbox" data-sumstatus="' + esc(status) + '"><b>' + n + '</b><span>' +
+    (color ? '<i class="stat-dot" style="background:' + color + '"></i>' : '') + esc(label) + '</span></button>';
 }
 
 /* ---------- UP NEXT ---------- */
@@ -2936,7 +2938,7 @@ document.addEventListener('click', function(e){
   const t = e.target.closest('[data-go],[data-open],[data-fav],[data-pin],[data-prio],[data-mark],' +
     '[data-menu],[data-toggle],[data-sopen],[data-sall],[data-supto],[data-ssel],[data-tohere],' +
     '[data-back],[data-step],[data-hold],[data-resume],[data-complete],[data-rewatch],[data-del],' +
-    '[data-refresh],[data-note],[data-platsheet],[data-pset],[data-add],[data-fstatus],[data-settheme],[data-watch],[data-setlink],[data-detect],[data-watchpage],' +
+    '[data-refresh],[data-note],[data-platsheet],[data-pset],[data-add],[data-fstatus],[data-sumstatus],[data-settheme],[data-watch],[data-setlink],[data-detect],[data-watchpage],' +
     '[data-pmove],[data-ptoggle],[data-pdel],[data-bulk],[data-close]');
 
   /* episode multi-select swallows row taps first */
@@ -3084,6 +3086,14 @@ document.addEventListener('click', function(e){
   }
   if(d.step)   { return stepProgress(route.arg, Number(d.step)); }
   if(d.fstatus){ libFilter.status = d.fstatus; return viewLibrary(); }
+  if(d.sumstatus){
+    /* The home summary counts every series, so clear the narrowing filters
+       and any active search — otherwise the library you land on shows fewer
+       than the number that was just tapped. */
+    libFilter = { status: d.sumstatus, platform:'', genre:'', fav:false };
+    findQuery = '';
+    return go('library');
+  }
   if(d.settheme){ db.prefs.theme = d.settheme; save(); applyTheme(); return viewSettings(); }
 
   /* ---- platform manager ---- */
