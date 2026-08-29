@@ -1,0 +1,23 @@
+{
+  "name": "series-tracker",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arunpratheep/series-tracker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/arunpratheep/series-tracker/issues"
+  },
+  "homepage": "https://github.com/arunpratheep/series-tracker#readme",
+  "description": "",
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
+}
