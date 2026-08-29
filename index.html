@@ -466,7 +466,7 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
 const K3 = 'spine-v3', K2 = 'spine-v2';
 /* Bumped on every change. Shown in Settings so you can tell at a glance
    whether the version you're looking at is the one that was deployed. */
-const BUILD = 'b18 · save-race';
+const BUILD = 'b19 · jiohotstar-search';
 
 /* Optional. Get a free key at themoviedb.org → Settings → API.
    Leave as-is and the app simply keeps asking you to pick the platform
@@ -481,7 +481,7 @@ const tmdbOn = () => TMDB_KEY.indexOf('PASTE_YOUR') === -1;
 const DEFAULT_PLATFORMS = [
   { id:'netflix',    name:'Netflix',        color:'#E50914', search:'https://www.netflix.com/search?q={q}' },
   { id:'prime',      name:'Prime Video',    color:'#00A8E1', search:'https://www.primevideo.com/search?phrase={q}' },
-  { id:'jiohotstar', name:'JioHotstar',     color:'#1A73E8', search:'' },   /* their search URL keeps changing — set it in Settings */
+  { id:'jiohotstar', name:'JioHotstar',     color:'#1A73E8', search:'https://www.hotstar.com/in/search?search_query={q}' },
   { id:'sonyliv',    name:'SonyLIV',        color:'#E8543F', search:'https://www.sonyliv.com/search?searchTerm={q}' },
   { id:'zee5',       name:'ZEE5',           color:'#8230C6', search:'https://www.zee5.com/search?q={q}' },
   { id:'appletv',    name:'Apple TV+',      color:'#B4BCC2', search:'https://tv.apple.com/search?term={q}' },
@@ -524,6 +524,12 @@ function normalizePlatforms(data){
     if(p.search == null){
       const def = DEFAULT_PLATFORMS.find(x => x.id === p.id);
       p.search = def ? def.search : '';
+    }
+    /* one-time backfill: jiohotstar shipped with search:'' (URL was
+       unknown then) so the null-check above never catches it. Now that
+       the real URL is confirmed, fill it in for devices stuck on empty. */
+    if(p.id === 'jiohotstar' && !p.search){
+      p.search = 'https://www.hotstar.com/in/search?search_query={q}';
     }
   });
   return data;
