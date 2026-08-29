@@ -466,7 +466,7 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
 const K3 = 'spine-v3', K2 = 'spine-v2';
 /* Bumped on every change. Shown in Settings so you can tell at a glance
    whether the version you're looking at is the one that was deployed. */
-const BUILD = 'b17 · fallback';
+const BUILD = 'b18 · save-race';
 
 /* Optional. Get a free key at themoviedb.org → Settings → API.
    Leave as-is and the app simply keeps asking you to pick the platform
@@ -506,6 +506,7 @@ const BLANK = {
 
 let db = JSON.parse(JSON.stringify(BLANK));
 let saveTimer = null, saveFailed = false;
+let lastLocalEdit = 0;   /* declared before boot() runs, which calls save() */
 
 /* Fills in fields added in later versions. Must run on EVERY path that
    loads data — local boot and cloud sync alike — or records saved by an
@@ -578,14 +579,18 @@ function readJSON(key){
   save();
 })();
 
+/* Write to this device straight away and only debounce the network call.
+   The old version debounced both, which left a 200ms window where an
+   incoming sync could replace db and silently undo the edit. */
 function save(){
+  lastLocalEdit = Date.now();
+  try { localStorage.setItem(K3, JSON.stringify(db)); saveFailed = false; }
+  catch(e){
+    console.error('SPINE save failed', e);
+    if(!saveFailed){ saveFailed = true; toast('Storage is full — export a backup from Settings.'); }
+  }
   clearTimeout(saveTimer);
   saveTimer = setTimeout(function(){
-    try { localStorage.setItem(K3, JSON.stringify(db)); saveFailed = false; }
-    catch(e){
-      console.error('SPINE save failed', e);
-      if(!saveFailed){ saveFailed = true; toast('Storage is full — export a backup from Settings.'); }
-    }
     if(cloudUser && !applyingRemote) pushCloud();
   }, 200);
 }
@@ -684,6 +689,10 @@ function startHouseholdListeners(hid){
   detachCloud();
   unsubSnap = fb.onSnapshot(householdRef(hid), function(snap){
     if(!snap.exists() || snap.metadata.hasPendingWrites) return;   /* ignore the echo of our own write */
+    /* We changed something a moment ago and it may not have reached the
+       server yet — applying this snapshot now would undo it. Keep ours
+       and push again instead. */
+    if(Date.now() - lastLocalEdit < 4000){ pushCloud(); return; }
     applyingRemote = true;
     db = decodeFromCloud(snap.data());
     localStorage.setItem(K3, JSON.stringify(db));
@@ -2759,10 +2768,18 @@ function openLinkSheet(id){
           if(!r){ toast('That series is no longer in your library'); closeSheet(); return; }
           if(v) r.link = v; else delete r.link;
           r.touched = Date.now();
-          save(); closeSheet(); rerender();
-          toast(!v ? 'Link removed'
-                   : unwrapped ? 'Cleaned up and saved the direct link'
-                               : 'Link saved');
+          save();
+          /* read it back rather than assuming — if this fails, say so */
+          let persisted = false;
+          try {
+            const back = JSON.parse(localStorage.getItem(K3));
+            persisted = !v || (back && back.shows && back.shows[id] && back.shows[id].link === v);
+          } catch(e){ persisted = false; }
+          closeSheet(); rerender();
+          toast(!persisted ? "Saved, but it didn't stick — tell Claude the build number"
+                : !v ? 'Link removed'
+                : unwrapped ? 'Cleaned up and saved the direct link'
+                            : 'Link saved');
         } catch(err){
           console.error('save link failed', err);
           toast('Save failed: ' + (err && err.message ? err.message : 'unknown error'));
