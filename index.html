@@ -466,7 +466,7 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
 const K3 = 'spine-v3', K2 = 'spine-v2';
 /* Bumped on every change. Shown in Settings so you can tell at a glance
    whether the version you're looking at is the one that was deployed. */
-const BUILD = 'b15 · auto-ott';
+const BUILD = 'b17 · fallback';
 
 /* Optional. Get a free key at themoviedb.org → Settings → API.
    Leave as-is and the app simply keeps asking you to pick the platform
@@ -481,7 +481,7 @@ const tmdbOn = () => TMDB_KEY.indexOf('PASTE_YOUR') === -1;
 const DEFAULT_PLATFORMS = [
   { id:'netflix',    name:'Netflix',        color:'#E50914', search:'https://www.netflix.com/search?q={q}' },
   { id:'prime',      name:'Prime Video',    color:'#00A8E1', search:'https://www.primevideo.com/search?phrase={q}' },
-  { id:'jiohotstar', name:'JioHotstar',     color:'#1A73E8', search:'https://www.hotstar.com/in/search?q={q}' },
+  { id:'jiohotstar', name:'JioHotstar',     color:'#1A73E8', search:'' },   /* their search URL keeps changing — set it in Settings */
   { id:'sonyliv',    name:'SonyLIV',        color:'#E8543F', search:'https://www.sonyliv.com/search?searchTerm={q}' },
   { id:'zee5',       name:'ZEE5',           color:'#8230C6', search:'https://www.zee5.com/search?q={q}' },
   { id:'appletv',    name:'Apple TV+',      color:'#B4BCC2', search:'https://tv.apple.com/search?term={q}' },
@@ -977,14 +977,36 @@ function activePlatforms(){
 function sortedPlatforms(){ return (db.platforms || []).slice().sort((a,b)=>a.order-b.order); }
 function platformUsage(pid){ return allShows().filter(s => s.platform === pid).length; }
 
+/* Accepts whatever the user pastes and pulls out the real destination:
+   a JustWatch clickout carries its target in ?r=, and Netflix appends
+   preventIntent=true which stops the mobile app from opening. */
+function unwrapLink(raw){
+  let url = String(raw || '').trim();
+  if(!url) return url;
+  try {
+    let u = new URL(url);
+    if(u.hostname.toLowerCase().indexOf('justwatch') > -1){
+      const target = u.searchParams.get('r');
+      if(target){ url = decodeURIComponent(target); u = new URL(url); }
+    }
+    if(u.searchParams.has('preventIntent')){
+      u.searchParams.delete('preventIntent');
+      url = u.toString().replace(/\?$/, '');
+    }
+  } catch(e){ /* not a parseable URL — hand it back untouched */ }
+  return url;
+}
+
 /* an exact link the user pasted wins; otherwise search the platform */
 function watchLink(showId){
   const rec = db.shows[showId];
   if(!rec) return null;
-  if(rec.link) return { url: rec.link, exact: true, platform: platformOf(showId) };
   const p = platformOf(showId);
-  if(!p || !p.search) return null;
-  return { url: p.search.replace('{q}', encodeURIComponent(rec.name)), exact: false, platform: p };
+  if(rec.link) return { url: rec.link, exact: true, platform: p };
+  if(p && p.search) return { url: p.search.replace('{q}', encodeURIComponent(rec.name)), exact: false, platform: p };
+  /* no usable search URL — the TMDB watch page carries real links instead */
+  if(rec.watchPage) return { url: rec.watchPage, exact: false, viaTmdb: true, platform: p };
+  return null;
 }
 function openLink(url){
   const win = window.open(url, '_blank', 'noopener,noreferrer');
@@ -999,7 +1021,7 @@ function openWatch(showId){
   const L = watchLink(showId);
   if(!L){ toast('Set a platform for this series first'); return; }
   const rec = db.shows[showId];
-  if(L.exact){ openLink(L.url); return; }
+  if(L.exact || L.viaTmdb){ openLink(L.url); return; }
   const done = function(copied){
     openLink(L.url);
     toast(copied
@@ -1618,11 +1640,14 @@ function viewShow(id){
   const L = watchLink(id);
   if(L){
     html += '<button class="btn primary wide" data-watch="' + id + '" style="margin-top:10px">' +
-      ic('play','sm') + 'Watch on ' + esc(L.platform ? L.platform.name : 'site') + '</button>' +
+      ic('play','sm') + (L.viaTmdb ? 'Find where to watch'
+                                   : 'Watch on ' + esc(L.platform ? L.platform.name : 'site')) + '</button>' +
       '<p class="h-sub" style="margin-top:7px;font-size:12px">' +
       (L.exact ? 'Opens your saved link.'
-               : 'Searches ' + esc(L.platform.name) + ' and copies the title. Some apps open an empty ' +
-                 'search box — paste it, or save an exact link from the ⋮ menu.') +
+       : L.viaTmdb ? 'No search URL set for this platform — opens the watch page instead. ' +
+                     'Add one in Settings, or save an exact link from the ⋮ menu.'
+       : 'Searches ' + esc(L.platform.name) + ' and copies the title. Some apps open an empty ' +
+         'search box — paste it, or save an exact link from the ⋮ menu.') +
       '</p>';
   }
 
@@ -2693,7 +2718,8 @@ function openLinkSheet(id){
   const rec = db.shows[id];
   openSheet('Exact link',
     '<p class="h-sub" style="margin:0 0 4px">Paste the ' + esc(p ? p.name : 'streaming') +
-      ' page for this series. One tap then goes straight there instead of to a search.</p>' +
+      ' page for this series — or a JustWatch link, which gets unwrapped automatically. ' +
+      'One tap then goes straight there instead of to a search.</p>' +
     '<label class="lbl" for="linkBox">Link</label>' +
     '<input class="field" id="linkBox" type="url" inputmode="url" autocomplete="off" ' +
       'enterkeyhint="done" placeholder="https://…" value="' + esc(rec.link || '') + '">' +
@@ -2704,8 +2730,10 @@ function openLinkSheet(id){
         try {
           const box = document.getElementById('linkBox');
           if(!box){ toast('Link box missing — reopen and try again'); return; }
-          const v = box.value.trim();
+          const raw = box.value.trim();
+          const v = unwrapLink(raw);
           if(v && !/^https?:\/\//i.test(v)){ toast('That needs to start with https://'); return; }
+          const unwrapped = v !== raw;
           /* look the record up now, not when the sheet opened: a cloud sync
              may have replaced the whole db object in between */
           const r = db.shows[id];
@@ -2713,7 +2741,9 @@ function openLinkSheet(id){
           if(v) r.link = v; else delete r.link;
           r.touched = Date.now();
           save(); closeSheet(); rerender();
-          toast(v ? 'Link saved' : 'Link removed');
+          toast(!v ? 'Link removed'
+                   : unwrapped ? 'Cleaned up and saved the direct link'
+                               : 'Link saved');
         } catch(err){
           console.error('save link failed', err);
           toast('Save failed: ' + (err && err.message ? err.message : 'unknown error'));
