@@ -466,7 +466,7 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
 const K3 = 'spine-v3', K2 = 'spine-v2';
 /* Bumped on every change. Shown in Settings so you can tell at a glance
    whether the version you're looking at is the one that was deployed. */
-const BUILD = 'b19 · jiohotstar-search';
+const BUILD = 'b20 · link-paste-fix';
 
 /* Optional. Get a free key at themoviedb.org → Settings → API.
    Leave as-is and the app simply keeps asking you to pick the platform
@@ -2754,9 +2754,11 @@ function openLinkSheet(id){
       ' page for this series — or a JustWatch link, which gets unwrapped automatically. ' +
       'One tap then goes straight there instead of to a search.</p>' +
     '<label class="lbl" for="linkBox">Link</label>' +
+    /* Do NOT disable user-select/touch-callout on this input: pasting is the
+       primary way a link gets in here, and on Samsung Internet / Chrome
+       Android that blocks the paste bubble and caret placement outright. */
     '<input class="field" id="linkBox" type="url" inputmode="url" autocomplete="off" ' +
-      'enterkeyhint="done" placeholder="https://…" value="' + esc(rec.link || '') + '" ' +
-      'style="-webkit-user-select:none;user-select:none;-webkit-touch-callout:none">' +
+      'enterkeyhint="done" placeholder="https://…" value="' + esc(rec.link || '') + '">' +
     '<button class="btn primary wide" id="linkGo" style="margin-top:22px">Save link</button>' +
     (rec.link ? '<button class="btn wide" id="linkClear" style="margin-top:9px">Remove link</button>' : ''),
     function(){
@@ -2772,18 +2774,26 @@ function openLinkSheet(id){
              may have replaced the whole db object in between */
           const r = db.shows[id];
           if(!r){ toast('That series is no longer in your library'); closeSheet(); return; }
-          if(v) r.link = v; else delete r.link;
+          /* An empty box must never silently destroy a link that is already
+             saved. If a paste fails (some mobile browsers drop it), Save
+             would otherwise read '' and quietly wipe the real link — which
+             looks exactly like "saving does nothing". Clearing is only ever
+             done through the explicit Remove link button. */
+          if(!v){
+            if(r.link){ toast('Nothing pasted — use “Remove link” to clear the saved one'); return; }
+            closeSheet(); return;
+          }
+          r.link = v;
           r.touched = Date.now();
           save();
           /* read it back rather than assuming — if this fails, say so */
           let persisted = false;
           try {
             const back = JSON.parse(localStorage.getItem(K3));
-            persisted = !v || (back && back.shows && back.shows[id] && back.shows[id].link === v);
+            persisted = !!(back && back.shows && back.shows[id] && back.shows[id].link === v);
           } catch(e){ persisted = false; }
           closeSheet(); rerender();
           toast(!persisted ? "Saved, but it didn't stick — tell Claude the build number"
-                : !v ? 'Link removed'
                 : unwrapped ? 'Cleaned up and saved the direct link'
                             : 'Link saved');
         } catch(err){
