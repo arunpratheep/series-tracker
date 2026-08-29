@@ -466,7 +466,7 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
 const K3 = 'spine-v3', K2 = 'spine-v2';
 /* Bumped on every change. Shown in Settings so you can tell at a glance
    whether the version you're looking at is the one that was deployed. */
-const BUILD = 'b13 · link-save';
+const BUILD = 'b13 · netflix-deeplink';
 
 /* {q} is replaced with the URL-encoded series title. On a phone these
    open the native app when it's installed, and the website otherwise.
@@ -985,18 +985,53 @@ function openLink(url){
   return !!win;
 }
 
-/* Some apps (Netflix's, notably) claim the /search path but ignore the
-   query string, so you land on an empty search box. Copying the title
-   first turns that into a single paste. Exact links skip this. */
+/* Netflix has a native in-app search deep link. This is preferable to
+   opening netflix.com/search because the installed Android app can receive
+   the title query directly. Exact saved title URLs still take priority. */
+function openNetflixSearch(title){
+  const q = encodeURIComponent(title);
+  const native = 'nflx://www.netflix.com/search?q=' + q;
+  try {
+    window.location.href = native;
+    setTimeout(function(){
+      /* If the custom scheme was not handled, fall back to the normal
+         Netflix web search. */
+      if(document.visibilityState === 'visible'){
+        openLink('https://www.netflix.com/search?q=' + q);
+      }
+    }, 900);
+    return true;
+  } catch(e){
+    return openLink('https://www.netflix.com/search?q=' + q);
+  }
+}
+
+function openPlatformLink(url, platform){
+  if(platform && platform.id === 'netflix' && /Android/i.test(navigator.userAgent)){
+    /* Exact Netflix title URLs are supported by the Android app. */
+    if(/https?:\/\/([^/]+\.)?netflix\.com\/(title|watch)\//i.test(url)){
+      try { window.location.href = url; return true; } catch(e) {}
+    }
+  }
+  return openLink(url);
+}
+
+/* Exact saved links open directly. If no exact Netflix URL has been saved,
+   launch Netflix's native in-app search with the series name. */
 function openWatch(showId){
   const L = watchLink(showId);
   if(!L){ toast('Set a platform for this series first'); return; }
   const rec = db.shows[showId];
-  if(L.exact){ openLink(L.url); return; }
+  if(L.exact){ openPlatformLink(L.url, L.platform); return; }
+  if(L.platform && L.platform.id === 'netflix' && /Android/i.test(navigator.userAgent)){
+    openNetflixSearch(rec.name);
+    toast('Opening Netflix search for ' + rec.name);
+    return;
+  }
   const done = function(copied){
-    openLink(L.url);
+    openPlatformLink(L.url, L.platform);
     toast(copied
-      ? 'Opening ' + (L.platform ? L.platform.name : 'site') + ' — title copied, paste it if the search is empty'
+      ? 'Opening ' + (L.platform ? L.platform.name : 'site') + ' — title copied if the app needs a search'
       : 'Opening ' + (L.platform ? L.platform.name : 'site'));
   };
   if(navigator.clipboard && navigator.clipboard.writeText){
@@ -2538,8 +2573,8 @@ function openNoteSheet(id){
     });
 }
 function openLinkSheet(id){
-  const p = platformOf(id);
   const rec = db.shows[id];
+  const p = platformOf(id);
   openSheet('Exact link',
     '<p class="h-sub" style="margin:0 0 4px">Paste the ' + esc(p ? p.name : 'streaming') +
       ' page for this series. One tap then goes straight there instead of to a search.</p>' +
@@ -2550,37 +2585,19 @@ function openLinkSheet(id){
     (rec.link ? '<button class="btn wide" id="linkClear" style="margin-top:9px">Remove link</button>' : ''),
     function(){
       const doSave = function(){
-        try {
-          const box = document.getElementById('linkBox');
-          if(!box){ toast('Link box missing — reopen and try again'); return; }
-          const v = box.value.trim();
-          if(v && !/^https?:\/\//i.test(v)){ toast('That needs to start with https://'); return; }
-          /* look the record up now, not when the sheet opened: a cloud sync
-             may have replaced the whole db object in between */
-          const r = db.shows[id];
-          if(!r){ toast('That series is no longer in your library'); closeSheet(); return; }
-          if(v) r.link = v; else delete r.link;
-          r.touched = Date.now();
-          save(); closeSheet(); rerender();
-          toast(v ? 'Link saved' : 'Link removed');
-        } catch(err){
-          console.error('save link failed', err);
-          toast('Save failed: ' + (err && err.message ? err.message : 'unknown error'));
-        }
+        const v = document.getElementById('linkBox').value.trim();
+        if(v && !/^https?:\/\//i.test(v)){ toast('That needs to start with https://'); return; }
+        if(v) rec.link = v; else delete rec.link;
+        rec.touched = Date.now(); save(); closeSheet(); rerender();
+        toast(v ? 'Link saved' : 'Link removed');
       };
       bindTap(document.getElementById('linkGo'), doSave);
       document.getElementById('linkBox').addEventListener('keydown', function(e){
         if(e.key === 'Enter'){ e.preventDefault(); doSave(); }
       });
       bindTap(document.getElementById('linkClear'), function(){
-        try {
-          const r = db.shows[id];
-          if(r){ delete r.link; r.touched = Date.now(); }
-          save(); closeSheet(); rerender(); toast('Link removed');
-        } catch(err){
-          console.error('remove link failed', err);
-          toast('Remove failed: ' + (err && err.message ? err.message : 'unknown error'));
-        }
+        delete rec.link; rec.touched = Date.now(); save(); closeSheet(); rerender();
+        toast('Link removed');
       });
     });
 }
