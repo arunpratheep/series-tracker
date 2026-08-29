@@ -977,17 +977,35 @@ function activePlatforms(){
 function sortedPlatforms(){ return (db.platforms || []).slice().sort((a,b)=>a.order-b.order); }
 function platformUsage(pid){ return allShows().filter(s => s.platform === pid).length; }
 
+/* Pulls the real destination out of a JustWatch clickout link. Older links
+   (t.justwatch.com) carry it plainly in ?r=. Newer ones (click.justwatch.com)
+   drop that and only carry ?cx=, a base64 Snowplow tracking blob — the
+   destination is buried in there as data[].data.deeplinkFallback. */
+function justwatchTarget(u){
+  const r = u.searchParams.get('r');
+  if(r) return decodeURIComponent(r);
+  const cx = u.searchParams.get('cx');
+  if(!cx) return null;
+  try {
+    let b64 = cx.replace(/-/g,'+').replace(/_/g,'/');
+    while(b64.length % 4) b64 += '=';
+    const payload = JSON.parse(atob(b64));
+    const ctx = (payload.data || []).find(d => d.data && d.data.deeplinkFallback);
+    return ctx ? ctx.data.deeplinkFallback : null;
+  } catch(e){ return null; }
+}
+
 /* Accepts whatever the user pastes and pulls out the real destination:
-   a JustWatch clickout carries its target in ?r=, and Netflix appends
-   preventIntent=true which stops the mobile app from opening. */
+   a JustWatch clickout carries its target in ?r= or ?cx=, and Netflix
+   appends preventIntent=true which stops the mobile app from opening. */
 function unwrapLink(raw){
   let url = String(raw || '').trim();
   if(!url) return url;
   try {
     let u = new URL(url);
     if(u.hostname.toLowerCase().indexOf('justwatch') > -1){
-      const target = u.searchParams.get('r');
-      if(target){ url = decodeURIComponent(target); u = new URL(url); }
+      const target = justwatchTarget(u);
+      if(target){ url = target; u = new URL(url); }
     }
     if(u.searchParams.has('preventIntent')){
       u.searchParams.delete('preventIntent');
