@@ -466,7 +466,14 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
 const K3 = 'spine-v3', K2 = 'spine-v2';
 /* Bumped on every change. Shown in Settings so you can tell at a glance
    whether the version you're looking at is the one that was deployed. */
-const BUILD = 'b13 · netflix-deeplink';
+const BUILD = 'b15 · auto-ott';
+
+/* Optional. Get a free key at themoviedb.org → Settings → API.
+   Leave as-is and the app simply keeps asking you to pick the platform
+   by hand, exactly as before — nothing else changes. */
+const TMDB_KEY = 'c29192ef04d99e3e524630c5ad3e2e79';
+const TMDB_REGION = 'IN';
+const tmdbOn = () => TMDB_KEY.indexOf('PASTE_YOUR') === -1;
 
 /* {q} is replaced with the URL-encoded series title. On a phone these
    open the native app when it's installed, and the website otherwise.
@@ -985,53 +992,18 @@ function openLink(url){
   return !!win;
 }
 
-/* Netflix has a native in-app search deep link. This is preferable to
-   opening netflix.com/search because the installed Android app can receive
-   the title query directly. Exact saved title URLs still take priority. */
-function openNetflixSearch(title){
-  const q = encodeURIComponent(title);
-  const native = 'nflx://www.netflix.com/search?q=' + q;
-  try {
-    window.location.href = native;
-    setTimeout(function(){
-      /* If the custom scheme was not handled, fall back to the normal
-         Netflix web search. */
-      if(document.visibilityState === 'visible'){
-        openLink('https://www.netflix.com/search?q=' + q);
-      }
-    }, 900);
-    return true;
-  } catch(e){
-    return openLink('https://www.netflix.com/search?q=' + q);
-  }
-}
-
-function openPlatformLink(url, platform){
-  if(platform && platform.id === 'netflix' && /Android/i.test(navigator.userAgent)){
-    /* Exact Netflix title URLs are supported by the Android app. */
-    if(/https?:\/\/([^/]+\.)?netflix\.com\/(title|watch)\//i.test(url)){
-      try { window.location.href = url; return true; } catch(e) {}
-    }
-  }
-  return openLink(url);
-}
-
-/* Exact saved links open directly. If no exact Netflix URL has been saved,
-   launch Netflix's native in-app search with the series name. */
+/* Some apps (Netflix's, notably) claim the /search path but ignore the
+   query string, so you land on an empty search box. Copying the title
+   first turns that into a single paste. Exact links skip this. */
 function openWatch(showId){
   const L = watchLink(showId);
   if(!L){ toast('Set a platform for this series first'); return; }
   const rec = db.shows[showId];
-  if(L.exact){ openPlatformLink(L.url, L.platform); return; }
-  if(L.platform && L.platform.id === 'netflix' && /Android/i.test(navigator.userAgent)){
-    openNetflixSearch(rec.name);
-    toast('Opening Netflix search for ' + rec.name);
-    return;
-  }
+  if(L.exact){ openLink(L.url); return; }
   const done = function(copied){
-    openPlatformLink(L.url, L.platform);
+    openLink(L.url);
     toast(copied
-      ? 'Opening ' + (L.platform ? L.platform.name : 'site') + ' — title copied if the app needs a search'
+      ? 'Opening ' + (L.platform ? L.platform.name : 'site') + ' — title copied, paste it if the search is empty'
       : 'Opening ' + (L.platform ? L.platform.name : 'site'));
   };
   if(navigator.clipboard && navigator.clipboard.writeText){
@@ -1128,10 +1100,13 @@ function absorb(data, keep){
     genres: data.genres || [],
     rating: (data.rating && data.rating.average) || null,
     network: (data.network && data.network.name) || (data.webChannel && data.webChannel.name) || '',
+    imdb: (data.externals && data.externals.imdb) || null,
     summary: strip(data.summary),
     eps: eps.map(e => [e.id, e.season, e.number, e.airdate, e.runtime, e.name]),
     /* everything below is the user's, and survives every refresh */
     platform:   prev.platform || null,
+    tmdbId:     prev.tmdbId || null,
+    watchPage:  prev.watchPage || null,
     favourite: !!prev.favourite,
     pinned:    !!prev.pinned,
     priority:  prev.priority || 0,
@@ -1633,6 +1608,12 @@ function viewShow(id){
       activePlatforms().map(pl => '<option value="' + esc(pl.id) + '"' +
         (pl.id === rec.platform ? ' selected' : '') + '>' + esc(pl.name) + '</option>').join('') +
     '</select>';
+
+  if(rec.watchPage){
+    html += '<button class="btn wide" data-watchpage="' + id + '" style="margin-top:10px">' +
+      ic('grid','sm') + 'All ways to watch in India</button>' +
+      '<p class="h-sub" style="margin-top:6px;font-size:11.5px">Streaming data by JustWatch, via TMDB.</p>';
+  }
 
   const L = watchLink(id);
   if(L){
@@ -2356,6 +2337,135 @@ function importData(e){
 }
 
 
+
+/* ═══════════════════════════════════════════════════════════
+   AUTO PLATFORM DETECTION (TMDB, region IN)
+
+   TVmaze gives every show an IMDb id, so we can match TMDB exactly
+   rather than fuzzy-matching titles. TMDB's /watch/providers then
+   says which services carry it in India.
+
+   TMDB deliberately does not expose deep links — those belong to
+   JustWatch — so we get the platform name plus a TMDB watch page
+   that does carry working links. Detection is always overridable
+   from the dropdown; a mismatch is one tap to fix.
+   ═══════════════════════════════════════════════════════════ */
+const TMDB = 'https://api.themoviedb.org/3';
+
+/* provider names as TMDB reports them -> our platform ids */
+const PROVIDER_ALIASES = {
+  netflix:    ['netflix'],
+  prime:      ['amazonprimevideo','primevideo','amazonvideo'],
+  jiohotstar: ['jiohotstar','disneyplushotstar','hotstar','jiocinema'],
+  sonyliv:    ['sonyliv'],
+  zee5:       ['zee5'],
+  appletv:    ['appletvplus','appletv'],
+  mxplayer:   ['amazonmxplayer','mxplayer'],
+  aha:        ['aha'],
+  sunnxt:     ['sunnxt'],
+  hoichoi:    ['hoichoi'],
+  crunchyroll:['crunchyroll'],
+  discovery:  ['discoveryplus','discovery'],
+  lionsgate:  ['lionsgateplay','lionsgate'],
+  youtube:    ['youtubepremium','youtube']
+};
+const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/* match a TMDB provider name to a platform the user actually has */
+function matchPlatform(providerName){
+  const n = norm(providerName);
+  if(!n) return null;
+  const mine = db.platforms || [];
+
+  for(const p of mine){                       /* exact-ish name match first */
+    const pn = norm(p.name);
+    if(pn && (pn === n || pn.indexOf(n) > -1 || n.indexOf(pn) > -1)) return p.id;
+  }
+  for(const id of Object.keys(PROVIDER_ALIASES)){   /* then known aliases */
+    if(PROVIDER_ALIASES[id].some(a => a === n || n.indexOf(a) > -1 || a.indexOf(n) > -1)){
+      if(mine.some(p => p.id === id)) return id;
+    }
+  }
+  return null;
+}
+
+async function tmdb(path){
+  const sep = path.indexOf('?') > -1 ? '&' : '?';
+  const r = await fetch(TMDB + path + sep + 'api_key=' + TMDB_KEY);
+  if(r.status === 401) throw new Error('tmdb-key');
+  if(!r.ok) throw new Error('tmdb-http');
+  return r.json();
+}
+
+/* returns { platformId, providerName, watchPage } or null */
+async function lookupProviders(showId){
+  const rec = db.shows[showId];
+  if(!rec || !tmdbOn()) return null;
+
+  let tmdbId = rec.tmdbId;
+  if(!tmdbId){
+    if(!rec.imdb) return null;                /* nothing to match on */
+    const found = await tmdb('/find/' + encodeURIComponent(rec.imdb) + '?external_source=imdb_id');
+    const hit = (found.tv_results && found.tv_results[0]) || null;
+    if(!hit) return null;
+    tmdbId = hit.id;
+    rec.tmdbId = tmdbId;
+  }
+
+  const prov = await tmdb('/tv/' + tmdbId + '/watch/providers');
+  const here = prov.results && prov.results[TMDB_REGION];
+  if(!here) return { platformId:null, providerName:null, watchPage:null, none:true };
+
+  rec.watchPage = here.link || null;
+  /* flatrate = included with a subscription, which is what we care about */
+  const list = here.flatrate || here.free || here.ads || here.rent || here.buy || [];
+  if(!list.length) return { platformId:null, providerName:null, watchPage:rec.watchPage, none:true };
+
+  for(const entry of list){
+    const id = matchPlatform(entry.provider_name);
+    if(id) return { platformId:id, providerName:entry.provider_name, watchPage:rec.watchPage };
+  }
+  /* on a service the user doesn't have in their list */
+  return { platformId:null, providerName:list[0].provider_name, watchPage:rec.watchPage };
+}
+
+/* quiet = don't toast when there's nothing to report (used on add) */
+async function detectPlatform(showId, quiet){
+  if(!tmdbOn()){
+    if(!quiet) toast('Add a TMDB key to the file to enable auto-detection');
+    return;
+  }
+  const rec = db.shows[showId];
+  if(!rec) return;
+  if(!quiet) toast('Checking where it streams…');
+  try {
+    const res = await lookupProviders(showId);
+    if(!res){
+      if(!quiet) toast("Couldn't identify this series on TMDB — pick the platform below");
+      return;
+    }
+    if(res.platformId){
+      rec.platform = res.platformId;
+      rec.touched = Date.now(); save(); rerender();
+      const p = db.platforms.find(x => x.id === res.platformId);
+      toast('Streaming on ' + (p ? p.name : res.providerName) + ' — change it below if that is wrong');
+    } else if(res.providerName){
+      save(); rerender();
+      toast('TMDB says ' + res.providerName + ' — add it in Settings, or pick another below');
+    } else {
+      save(); rerender();
+      if(!quiet) toast('No Indian streaming listing found — pick the platform below');
+    }
+  } catch(e){
+    console.error('provider lookup failed', e);
+    if(!quiet){
+      toast(e.message === 'tmdb-key'
+        ? 'That TMDB key was rejected — check it in the file'
+        : "Couldn't reach TMDB — pick the platform below");
+    }
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════
    ADD SERIES — TVmaze type-ahead, kept distinct from library search
    ═══════════════════════════════════════════════════════════ */
@@ -2418,11 +2528,15 @@ async function addSeries(id){
     save();
     closeSheet();
     go('show', id);
-    /* nudge them straight to the platform choice — that's step 2 of adding */
     setTimeout(function(){
-      toast('"' + data.name + '" added — set a platform below');
-      const sel = document.getElementById('platSel');
-      if(sel && sel.scrollIntoView) sel.scrollIntoView({behavior:'smooth', block:'center'});
+      if(tmdbOn()){
+        toast('"' + data.name + '" added — checking where it streams…');
+        detectPlatform(id, true);
+      } else {
+        toast('"' + data.name + '" added — set a platform below');
+        const sel = document.getElementById('platSel');
+        if(sel && sel.scrollIntoView) sel.scrollIntoView({behavior:'smooth', block:'center'});
+      }
     }, 320);
   } catch(err){
     if(box) box.innerHTML = '<p class="h-sub">' + esc(apiMessage(err)) + '</p>';
@@ -2533,6 +2647,8 @@ function openMenu(id){
     'Open in ' + (wl.platform ? wl.platform.name : 'browser'));
   html += item('data-setlink="' + id + '"', 'edit',
     rec.link ? 'Edit exact link' : 'Set exact link');
+  if(tmdbOn()) html += item('data-detect="' + id + '" data-close="1"', 'refresh', 'Detect platform again');
+  if(rec.watchPage) html += item('data-watchpage="' + id + '" data-close="1"', 'grid', 'All ways to watch');
   html += '<div class="sheet-group">Status</div>';
   if(rec.hold) html += item('data-resume="' + id + '" data-close="1"', 'play', 'Resume watching');
   else html += item('data-hold="' + id + '"', 'pause', 'Put on hold');
@@ -2573,8 +2689,8 @@ function openNoteSheet(id){
     });
 }
 function openLinkSheet(id){
-  const rec = db.shows[id];
   const p = platformOf(id);
+  const rec = db.shows[id];
   openSheet('Exact link',
     '<p class="h-sub" style="margin:0 0 4px">Paste the ' + esc(p ? p.name : 'streaming') +
       ' page for this series. One tap then goes straight there instead of to a search.</p>' +
@@ -2585,19 +2701,37 @@ function openLinkSheet(id){
     (rec.link ? '<button class="btn wide" id="linkClear" style="margin-top:9px">Remove link</button>' : ''),
     function(){
       const doSave = function(){
-        const v = document.getElementById('linkBox').value.trim();
-        if(v && !/^https?:\/\//i.test(v)){ toast('That needs to start with https://'); return; }
-        if(v) rec.link = v; else delete rec.link;
-        rec.touched = Date.now(); save(); closeSheet(); rerender();
-        toast(v ? 'Link saved' : 'Link removed');
+        try {
+          const box = document.getElementById('linkBox');
+          if(!box){ toast('Link box missing — reopen and try again'); return; }
+          const v = box.value.trim();
+          if(v && !/^https?:\/\//i.test(v)){ toast('That needs to start with https://'); return; }
+          /* look the record up now, not when the sheet opened: a cloud sync
+             may have replaced the whole db object in between */
+          const r = db.shows[id];
+          if(!r){ toast('That series is no longer in your library'); closeSheet(); return; }
+          if(v) r.link = v; else delete r.link;
+          r.touched = Date.now();
+          save(); closeSheet(); rerender();
+          toast(v ? 'Link saved' : 'Link removed');
+        } catch(err){
+          console.error('save link failed', err);
+          toast('Save failed: ' + (err && err.message ? err.message : 'unknown error'));
+        }
       };
       bindTap(document.getElementById('linkGo'), doSave);
       document.getElementById('linkBox').addEventListener('keydown', function(e){
         if(e.key === 'Enter'){ e.preventDefault(); doSave(); }
       });
       bindTap(document.getElementById('linkClear'), function(){
-        delete rec.link; rec.touched = Date.now(); save(); closeSheet(); rerender();
-        toast('Link removed');
+        try {
+          const r = db.shows[id];
+          if(r){ delete r.link; r.touched = Date.now(); }
+          save(); closeSheet(); rerender(); toast('Link removed');
+        } catch(err){
+          console.error('remove link failed', err);
+          toast('Remove failed: ' + (err && err.message ? err.message : 'unknown error'));
+        }
       });
     });
 }
@@ -2704,7 +2838,7 @@ document.addEventListener('click', function(e){
   const t = e.target.closest('[data-go],[data-open],[data-fav],[data-pin],[data-prio],[data-mark],' +
     '[data-menu],[data-toggle],[data-sopen],[data-sall],[data-supto],[data-ssel],[data-tohere],' +
     '[data-back],[data-step],[data-hold],[data-resume],[data-complete],[data-rewatch],[data-del],' +
-    '[data-refresh],[data-note],[data-platsheet],[data-pset],[data-add],[data-fstatus],[data-settheme],[data-watch],[data-setlink],' +
+    '[data-refresh],[data-note],[data-platsheet],[data-pset],[data-add],[data-fstatus],[data-settheme],[data-watch],[data-setlink],[data-detect],[data-watchpage],' +
     '[data-pmove],[data-ptoggle],[data-pdel],[data-bulk],[data-close]');
 
   /* episode multi-select swallows row taps first */
@@ -2744,6 +2878,13 @@ document.addEventListener('click', function(e){
   }
   if(d.note)      { return openNoteSheet(d.note); }
   if(d.setlink)   { closeSheet(); return openLinkSheet(d.setlink); }
+  if(d.detect)    { if(d.close) closeSheet(); return detectPlatform(d.detect); }
+  if(d.watchpage){
+    const r = db.shows[d.watchpage];
+    if(d.close) closeSheet();
+    if(r && r.watchPage) openLink(r.watchPage);
+    return;
+  }
   if(d.watch){
     if(d.close) closeSheet();
     openWatch(d.watch);
