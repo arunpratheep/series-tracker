@@ -19,16 +19,27 @@ function extractMainScript(html){
   return html.slice(start + openTag.length, end);
 }
 
+function extractStyles(html){
+  const out = [];
+  const re = /<style>([\s\S]*?)<\/style>/g;
+  let m;
+  while((m = re.exec(html)) !== null) out.push(m[1]);
+  return out.join('\n');
+}
+
 /* Reused across every load — reading + slicing the file each time is wasted
    work, and the extracted source never changes within a test run. */
-let cachedScript = null;
-function getMainScript(){
-  if(cachedScript === null){
-    const html = fs.readFileSync(INDEX_HTML, 'utf8');
-    cachedScript = extractMainScript(html);
-  }
-  return cachedScript;
+let cachedScript = null, cachedStyles = null;
+function readIndex(){
+  const html = fs.readFileSync(INDEX_HTML, 'utf8');
+  if(cachedScript === null) cachedScript = extractMainScript(html);
+  if(cachedStyles === null) cachedStyles = extractStyles(html);
 }
+function getMainScript(){ readIndex(); return cachedScript; }
+/* The real stylesheet is injected too, so tests can assert on layering and
+   hit-testing rules (pointer-events, z-index) — a tap-blocking overlay is
+   invisible to any test that dispatches events straight at an element. */
+function getStyles(){ readIndex(); return cachedStyles; }
 
 /* Returns a fresh jsdom `window` with the app fully booted (migration run,
    platforms normalized, first save() done) — exactly like a real page load
@@ -38,6 +49,7 @@ function getMainScript(){
 function loadApp(seed){
   const skeleton = `<!doctype html><html><head>
     <meta name="theme-color" content="#0D1220">
+    <style>${getStyles()}</style>
   </head><body>
     <nav id="nav"></nav>
     <header>
@@ -105,4 +117,4 @@ const EXPOSE_INTERNALS = `
 };
 `;
 
-module.exports = { loadApp };
+module.exports = { loadApp, getStyles };

@@ -241,8 +241,13 @@ main{max-width:100%;padding:0 16px 40px}
 .toast{position:fixed;left:16px;right:16px;bottom:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom));
   z-index:70;background:var(--card2);border:1px solid var(--line);border-radius:14px;
   box-shadow:var(--shadow);padding:13px 15px;display:flex;align-items:center;gap:12px;
-  transform:translateY(140%);opacity:0;transition:transform .28s cubic-bezier(.32,.72,0,1),opacity .2s}
-.toast.on{transform:translateY(0);opacity:1}
+  transform:translateY(140%);opacity:0;transition:transform .28s cubic-bezier(.32,.72,0,1),opacity .2s;
+  /* opacity:0 does NOT stop hit-testing, and this sits at z-index 70 — above
+     the sheet (61). Without this the invisible toast swallows taps on
+     whatever is beneath it, which is exactly where a bottom sheet's primary
+     button lands. Re-enabled on .on so its Undo button still works. */
+  pointer-events:none}
+.toast.on{transform:translateY(0);opacity:1;pointer-events:auto}
 .toast span{flex:1;font-size:14px;min-width:0}
 .toast button{font-weight:600;color:var(--accent);font-size:13.5px;padding:6px 4px;flex:none}
 
@@ -466,7 +471,7 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
 const K3 = 'spine-v3', K2 = 'spine-v2';
 /* Bumped on every change. Shown in Settings so you can tell at a glance
    whether the version you're looking at is the one that was deployed. */
-const BUILD = 'b20 · link-paste-fix';
+const BUILD = 'b21 · toast-tap-block';
 
 /* Optional. Get a free key at themoviedb.org → Settings → API.
    Leave as-is and the app simply keeps asking you to pick the platform

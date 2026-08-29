@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { loadApp } = require('./harness');
+const { loadApp, getStyles } = require('./harness');
 
 /* Bug #1: <html data-theme="dark"> used to match the click delegate's
    [data-theme] selector, so ANY click that bubbled all the way up to
@@ -89,6 +89,39 @@ test('exact-link save: looks the record up at save time, so a db swap between op
 
   assert.equal(t.db.shows.s1.link, 'https://example.com/after-sync', 'the save must land on the CURRENT db.shows.s1, not a detached reference from when the sheet opened');
   assert.equal(t.db.shows.s1.note, 'came from a sync mid-edit', 'and it must not have clobbered fields the sync brought in');
+});
+
+/* The hidden toast sits at z-index 70 — above the sheet (61) — and
+   opacity:0 does NOT stop hit-testing. Without pointer-events:none it
+   forms an invisible band across the lower screen that swallows taps on
+   whatever is under it, which is exactly where a bottom sheet's primary
+   button lands. Every earlier test dispatched events straight at the
+   element and so never saw this; these assert on hit-testing instead. */
+/* Asserted against the stylesheet source rather than getComputedStyle:
+   jsdom's cascade is too incomplete to resolve these rules (.toast comes
+   back as position:static), so a computed-style assertion here would pass
+   for the wrong reason and catch nothing. */
+test('toast: is not hit-testable while hidden, so it cannot swallow taps beneath it', () => {
+  const css = getStyles().replace(/\s+/g, ' ');
+  const baseRule = /\.toast\s*\{([^}]*)\}/.exec(css);
+  assert.ok(baseRule, 'a .toast rule must exist');
+  assert.match(baseRule[1], /pointer-events:\s*none/, 'the hidden .toast must set pointer-events:none, or it intercepts taps meant for the sheet beneath it');
+
+  const onRule = /\.toast\.on\s*\{([^}]*)\}/.exec(css);
+  assert.ok(onRule, 'a .toast.on rule must exist');
+  assert.match(onRule[1], /pointer-events:\s*auto/, '.toast.on must restore pointer-events so Undo stays clickable');
+});
+
+test('toast: becomes hit-testable again once shown, so its Undo button still works', () => {
+  const dom = loadApp();
+  let undone = false;
+  dom.window.toast('Something happened', () => { undone = true; });
+  const toast = dom.window.document.getElementById('toast');
+  assert.ok(toast.classList.contains('on'), 'showing a toast must add the .on class that re-enables pointer events');
+  const undoBtn = dom.window.document.getElementById('undoBtn');
+  assert.ok(undoBtn, 'the toast must render an Undo button when given a callback');
+  undoBtn.click();
+  assert.equal(undone, true);
 });
 
 /* The exact-link input must stay pasteable. Disabling user-select on it
