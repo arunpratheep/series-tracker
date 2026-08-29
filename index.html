@@ -471,7 +471,7 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
 const K3 = 'spine-v3', K2 = 'spine-v2';
 /* Bumped on every change. Shown in Settings so you can tell at a glance
    whether the version you're looking at is the one that was deployed. */
-const BUILD = 'b21 · toast-tap-block';
+const BUILD = 'b22 · detect-legacy-imdb';
 
 /* Optional. Get a free key at themoviedb.org → Settings → API.
    Leave as-is and the app simply keeps asking you to pick the platform
@@ -2467,6 +2467,17 @@ async function lookupProviders(showId){
 
   let tmdbId = rec.tmdbId;
   if(!tmdbId){
+    /* Series migrated from v2, and anything added before we started storing
+       the IMDb id, have no rec.imdb — which made detection give up here and
+       silently leave both the platform and the TMDB watch page unset. The
+       TVmaze id is the record id, so fetch the missing id on demand rather
+       than making the user run a separate refresh first. */
+    if(!rec.imdb){
+      try {
+        const fresh = await fetchShow(rec.id);
+        rec.imdb = (fresh.externals && fresh.externals.imdb) || null;
+      } catch(e){ /* TVmaze unreachable — fall through to the null below */ }
+    }
     if(!rec.imdb) return null;                /* nothing to match on */
     const found = await tmdb('/find/' + encodeURIComponent(rec.imdb) + '?external_source=imdb_id');
     const hit = (found.tv_results && found.tv_results[0]) || null;
