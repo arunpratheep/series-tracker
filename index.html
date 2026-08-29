@@ -2740,8 +2740,9 @@ function openLinkSheet(id){
       'One tap then goes straight there instead of to a search.</p>' +
     '<label class="lbl" for="linkBox">Link</label>' +
     '<input class="field" id="linkBox" type="url" inputmode="url" autocomplete="off" ' +
-      'enterkeyhint="done" placeholder="https://…" value="' + esc(rec.link || '') + '">' +
-    '<button class="btn primary wide" id="linkGo" style="margin-top:14px">Save link</button>' +
+      'enterkeyhint="done" placeholder="https://…" value="' + esc(rec.link || '') + '" ' +
+      'style="-webkit-user-select:none;user-select:none;-webkit-touch-callout:none">' +
+    '<button class="btn primary wide" id="linkGo" style="margin-top:22px">Save link</button>' +
     (rec.link ? '<button class="btn wide" id="linkClear" style="margin-top:9px">Remove link</button>' : ''),
     function(){
       const doSave = function(){
