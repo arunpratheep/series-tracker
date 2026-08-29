@@ -471,7 +471,7 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
 const K3 = 'spine-v3', K2 = 'spine-v2';
 /* Bumped on every change. Shown in Settings so you can tell at a glance
    whether the version you're looking at is the one that was deployed. */
-const BUILD = 'b23 · summary-tap';
+const BUILD = 'b24 · auto-watchpage';
 
 /* Optional. Get a free key at themoviedb.org → Settings → API.
    Leave as-is and the app simply keeps asking you to pick the platform
@@ -1761,6 +1761,35 @@ function viewShow(id){
     ms.textContent = sEl.classList.contains('clip') ? 'Read more' : 'Show less';
   };
   window.scrollTo({top:0});
+  ensureWatchPage(id);
+}
+
+/* "All ways to watch" only renders when the series has a TMDB watch page,
+   and older records never got one — detection had to be run by hand, per
+   series, which nobody is going to do for a whole library. Fill it in on
+   demand instead, the first time a series is opened.
+
+   lookupProviders() only writes tmdbId and watchPage; assigning the
+   platform is detectPlatform()'s job, not this one. So this can never
+   overwrite a platform the user picked themselves.
+
+   Tracked in memory rather than on the record: a series with no Indian
+   listing simply gets one attempt per session and retries next time,
+   which needs no new persisted field and heals itself when TMDB updates. */
+const watchPageTried = new Set();
+async function ensureWatchPage(id){
+  const rec = db.shows[id];
+  if(!rec || !tmdbOn() || rec.watchPage || watchPageTried.has(id)) return;
+  watchPageTried.add(id);
+  try {
+    await lookupProviders(id);
+    if(!rec.watchPage) return;
+    save();
+    /* only repaint if the user is still looking at this series */
+    if(route.name === 'show' && String(route.arg) === String(id)) viewShow(id);
+  } catch(e){
+    console.info('watch-page lookup deferred', e);   /* offline or TMDB down */
+  }
 }
 function kv(k,v){ return '<div><dt>' + esc(k) + '</dt><dd>' + esc(String(v)) + '</dd></div>'; }
 

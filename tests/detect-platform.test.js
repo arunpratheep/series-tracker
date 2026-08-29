@@ -77,6 +77,71 @@ test('lookupProviders: TVmaze being unreachable degrades to null rather than thr
   assert.equal(res, null, 'the app must stay usable when TVmaze is down — detection just reports nothing');
 });
 
+/* "All ways to watch" only renders when the record has a TMDB watch page.
+   Older series never got one, and requiring the user to run detection by
+   hand for each of them is not a fix. Opening a series now fills it in. */
+test('ensureWatchPage: opening a series with no watch page fills it in automatically', async () => {
+  const dom = loadApp();
+  const t = dom.window.__test;
+  t.db.shows['43031'] = { id: 43031, name: 'Reacher', eps: [], platform: 'prime' };
+  stubNetwork(dom, { imdbFromTvmaze: 'tt9288030' });
+
+  await dom.window.ensureWatchPage('43031');
+
+  assert.equal(t.db.shows['43031'].watchPage, 'https://www.themoviedb.org/tv/108978-reacher/watch?locale=IN');
+});
+
+test('ensureWatchPage: never overwrites a platform the user chose by hand', async () => {
+  // TMDB reports Prime Video here; the user deliberately said Netflix.
+  // Filling in a watch page must not "correct" that.
+  const dom = loadApp();
+  const t = dom.window.__test;
+  t.db.shows['43031'] = { id: 43031, name: 'Reacher', eps: [], platform: 'netflix' };
+  stubNetwork(dom, { imdbFromTvmaze: 'tt9288030' });
+
+  await dom.window.ensureWatchPage('43031');
+
+  assert.equal(t.db.shows['43031'].platform, 'netflix', 'the manual choice must survive');
+  assert.ok(t.db.shows['43031'].watchPage, 'while still gaining the watch page');
+});
+
+test('ensureWatchPage: does nothing for a series that already has a watch page', async () => {
+  const dom = loadApp();
+  const t = dom.window.__test;
+  t.db.shows['43031'] = { id: 43031, name: 'Reacher', eps: [], watchPage: 'https://existing.example/watch' };
+  const calls = stubNetwork(dom, { imdbFromTvmaze: 'tt9288030' });
+
+  await dom.window.ensureWatchPage('43031');
+
+  assert.deepEqual(calls.tmdb, [], 'no lookup should happen when the page is already known');
+  assert.equal(t.db.shows['43031'].watchPage, 'https://existing.example/watch');
+});
+
+test('ensureWatchPage: retries at most once per session for a series with no listing', async () => {
+  const dom = loadApp();
+  const t = dom.window.__test;
+  t.db.shows['43031'] = { id: 43031, name: 'Obscure', eps: [] };
+  const calls = stubNetwork(dom, { imdbFromTvmaze: null });   // nothing to match on
+
+  await dom.window.ensureWatchPage('43031');
+  await dom.window.ensureWatchPage('43031');
+  await dom.window.ensureWatchPage('43031');
+
+  assert.equal(calls.fetchShow.length, 1, 'reopening a series must not re-hit the network every time');
+});
+
+test('ensureWatchPage: TMDB failing leaves the series usable and unchanged', async () => {
+  const dom = loadApp();
+  const t = dom.window.__test;
+  t.db.shows['43031'] = { id: 43031, name: 'Reacher', eps: [], platform: 'prime' };
+  dom.window.fetchShow = async () => ({ externals: { imdb: 'tt9288030' } });
+  dom.window.tmdb = async () => { throw new Error('tmdb-http'); };
+
+  await assert.doesNotReject(() => dom.window.ensureWatchPage('43031'));
+  assert.equal(t.db.shows['43031'].watchPage, undefined);
+  assert.equal(t.db.shows['43031'].platform, 'prime');
+});
+
 test('lookupProviders: a show TVmaze has no IMDb id for returns null without a TMDB call', async () => {
   const dom = loadApp();
   const t = dom.window.__test;
