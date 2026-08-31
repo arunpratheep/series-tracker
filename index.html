@@ -471,7 +471,7 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
 const K3 = 'spine-v3', K2 = 'spine-v2';
 /* Bumped on every change. Shown in Settings so you can tell at a glance
    whether the version you're looking at is the one that was deployed. */
-const BUILD = 'b25 · import-replaces';
+const BUILD = 'b27 · discover-v2';
 
 /* Optional. Get a free key at themoviedb.org → Settings → API.
    Leave as-is and the app simply keeps asking you to pick the platform
@@ -1561,6 +1561,7 @@ function debounce(fn, ms){
   let t; return function(){ const a = arguments, c = this;
     clearTimeout(t); t = setTimeout(() => fn.apply(c,a), ms); };
 }
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
 
 /* ---------- SERIES DETAIL ---------- */
@@ -1980,186 +1981,267 @@ function viewStats(){
 
 
 /* ═══════════════════════════════════════════════════════════
-   DISCOVER — genre-affinity recommendations
+   DISCOVER — per-show recommendations, aggregated and diversified
 
-   TVmaze has no "similar shows" endpoint, so this builds a local
-   corpus from its show index (a few pages, cached for 30 days)
-   and scores each candidate on genre overlap with what you have
-   actually watched, weighted by episodes watched, nudged by rating.
-   It is taste-by-genre, not collaborative filtering — good at
-   "you liked a sitcom, here are the best other sitcoms".
+   TVmaze has no "similar shows" data, so this leans on TMDB's per-title
+   /recommendations instead — real content-based suggestions rather than
+   a genre-tag match against a fixed pool. But asking for recommendations
+   for a SINGLE show is exactly the failure mode this was rebuilt to fix:
+   TMDB's own /recommendations for Friends is nothing but 90s sitcoms.
+
+   The actual fix is aggregation, not the data source. Every tracked show
+   with real progress is a "seed", weighted by episodes watched (and a
+   recency decay, so taste from six months ago doesn't outvote what you
+   watch now). Each seed's recommendations get pooled together, and a
+   candidate that shows up from MULTIPLE distinct seeds — cross-taste
+   corroboration — is scored well above one that only one seed likes.
+   Selection then caps how many uncorroborated picks any single seed can
+   contribute (3), so 20 episodes of Friends can surface at most 3
+   sitcoms on its own; a 4th only gets in by also matching something else
+   you watch. Corroborated picks are exempt from that cap on purpose —
+   agreement across different tastes already IS the diversity signal.
+
+   TVmaze ids are only resolved (via IMDb, TMDB -> TVmaze) at Add-to-
+   library time, not for the whole candidate pool — that's roughly 2
+   extra API calls per add instead of per card, and it's the app's
+   existing single source of truth for a "show" that gets touched.
    ═══════════════════════════════════════════════════════════ */
-const CORPUS_KEY = 'spine-corpus-v1';
-const CORPUS_PAGES = 4;          /* 250 shows per page */
-const CORPUS_TTL = 30 * DAY;
-let corpus = null, corpusLoading = false, corpusError = '';
+const DISCOVER_KEY = 'spine-discover-v2';
+const DISCOVER_TTL = 7 * DAY;
+const TMDB_GENRE_KEY = 'spine-tmdb-genres-v1';
+let discoverCache = null, discoverLoading = false, discoverError = '';
 
-function readCorpus(){
+/* Tracked shows as recommendation "seeds", heaviest taste first. Episodes
+   watched is the primary signal; favourites get a flat boost since a
+   short favourite show would otherwise never outweigh a long-running one
+   you merely watch; recency decays a seed toward zero over a year so a
+   show you finished long ago doesn't keep steering today's suggestions. */
+function seedProfile(){
+  const list = allShows().map(function(rec){
+    const pr = progress(rec.id);
+    if(!pr || pr.done <= 0) return null;
+    const daysSince = (Date.now() - (rec.touched || rec.addedAt || 0)) / DAY;
+    const recency = Math.max(0.35, 1 - daysSince / 365);
+    const weight = (pr.done + (rec.favourite ? 4 : 0)) * recency;
+    return { rec, weight };
+  }).filter(Boolean);
+  list.sort((a, b) => b.weight - a.weight);
+  return list;
+}
+
+async function tmdbGenreNames(){
   try {
-    const raw = JSON.parse(localStorage.getItem(CORPUS_KEY));
-    if(raw && raw.at && (Date.now() - raw.at) < CORPUS_TTL && raw.shows && raw.shows.length) return raw.shows;
+    const cached = JSON.parse(localStorage.getItem(TMDB_GENRE_KEY));
+    if(cached && cached.at && (Date.now() - cached.at) < 30 * DAY) return cached.map;
+  } catch(e){}
+  const map = {};
+  try {
+    const r = await tmdb('/genre/tv/list');
+    (r.genres || []).forEach(g => map[g.id] = g.name);
+    try { localStorage.setItem(TMDB_GENRE_KEY, JSON.stringify({ at: Date.now(), map })); } catch(e){}
+  } catch(e){ /* cards still work without genre labels */ }
+  return map;
+}
+
+function tmdbPoster(path){
+  return path ? 'https://image.tmdb.org/t/p/w342' + path : null;
+}
+
+/* Builds the aggregated, diversified pool. Returns
+   { recs: [...], seedSignature: string } or throws on total API failure
+   (a single seed failing just yields fewer candidates from it). */
+async function buildDiscover(){
+  const seeds = seedProfile().slice(0, 8);
+  if(!seeds.length) return { recs: [], seedSignature: '' };
+
+  const genreNames = await tmdbGenreNames();
+  const trackedTmdbIds = new Set(allShows().map(s => s.tmdbId).filter(Boolean));
+  const trackedNames = new Set(allShows().map(s => norm(s.name)));
+
+  const candidates = new Map();   /* tmdbId -> { data, seeds:[{rec,weight}] } */
+  for(const seed of seeds){
+    const tmdbId = await ensureTmdbId(seed.rec);
+    if(!tmdbId){ continue; }
+    let results = [];
+    try { results = (await tmdb('/tv/' + tmdbId + '/recommendations')).results || []; }
+    catch(e){ continue; }   /* this seed contributes nothing; the rest still can */
+    for(const c of results){
+      if(trackedTmdbIds.has(c.id) || trackedNames.has(norm(c.name))) continue;
+      if(!c.poster_path && !c.overview) continue;   /* too thin to show meaningfully */
+      if(!candidates.has(c.id)) candidates.set(c.id, { data: c, seeds: [] });
+      candidates.get(c.id).seeds.push(seed);
+    }
+    await sleep(120);
+  }
+
+  const scored = [...candidates.values()].map(function(c){
+    const weightSum = c.seeds.reduce((a, s) => a + s.weight, 0);
+    const corroboration = c.seeds.length;
+    /* corroboration compounds the score rather than just adding to it —
+       two distinct seeds agreeing should outrank one seed's top pick */
+    const score = weightSum * (1 + (corroboration - 1) * 0.7) + (c.data.vote_average || 0) * 0.2;
+    c.seeds.sort((a, b) => b.weight - a.weight);
+    return Object.assign(c, { score, corroboration });
+  });
+  scored.sort((a, b) => b.score - a.score);
+
+  const perSeedUncorroborated = new Map();
+  const selected = [];
+  for(const c of scored){
+    if(selected.length >= 24) break;
+    if(c.corroboration === 1){
+      const topSeedId = c.seeds[0].rec.id;
+      const used = perSeedUncorroborated.get(topSeedId) || 0;
+      if(used >= 3) continue;   /* this seed has had its say — needs corroboration to get more */
+      perSeedUncorroborated.set(topSeedId, used + 1);
+    }
+    selected.push(c);
+  }
+
+  const recs = selected.map(function(c){
+    return {
+      tmdbId: c.data.id,
+      name: c.data.name,
+      poster: tmdbPoster(c.data.poster_path),
+      genres: (c.data.genre_ids || []).map(id => genreNames[id]).filter(Boolean).slice(0, 2),
+      rating: c.data.vote_average ? Math.round(c.data.vote_average * 10) / 10 : null,
+      premiered: (c.data.first_air_date || '').slice(0, 4),
+      summary: strip(c.data.overview || '').slice(0, 180),
+      because: c.seeds.slice(0, 2).map(s => s.rec.name),
+      corroboration: c.corroboration
+    };
+  });
+  return { recs, seedSignature: seeds.map(s => s.rec.id).join(',') };
+}
+
+function readDiscoverCache(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(DISCOVER_KEY));
+    if(raw && raw.at && (Date.now() - raw.at) < DISCOVER_TTL) return raw;
   } catch(e){}
   return null;
 }
 
-async function loadCorpus(){
-  const cached = readCorpus();
-  if(cached){ corpus = cached; return corpus; }
-  corpusLoading = true; corpusError = '';
+async function loadDiscover(force){
+  const currentSignature = seedProfile().slice(0, 8).map(s => s.rec.id).join(',');
+  if(!force){
+    const cached = readDiscoverCache();
+    /* a stale cache still beats nothing if the taste signature moved but
+       rebuilding fails; only skip the cache outright when it's actually usable */
+    if(cached && cached.seedSignature === currentSignature){
+      discoverCache = cached;
+      if(route.name === 'discover') viewDiscover();
+      return discoverCache;
+    }
+  }
+  discoverLoading = true; discoverError = '';
   if(route.name === 'discover') viewDiscover();
   try {
-    const pages = [];
-    for(let i = 0; i < CORPUS_PAGES; i++) pages.push(api('/shows?page=' + i, 15000));
-    const results = await Promise.all(pages);
-    const slim = [];
-    results.forEach(function(list){
-      (list || []).forEach(function(s){
-        if(!s.genres || !s.genres.length) return;           /* ungenred rows can't be scored */
-        if(!s.rating || !s.rating.average) return;          /* nor unrated ones */
-        slim.push({
-          id: s.id, name: s.name,
-          image: s.image ? s.image.medium : null,
-          genres: s.genres,
-          rating: s.rating.average,
-          premiered: s.premiered || '',
-          status: s.status || '',
-          summary: strip(s.summary || '').slice(0, 180)
-        });
-      });
-    });
-    corpus = slim;
-    try { localStorage.setItem(CORPUS_KEY, JSON.stringify({ at: Date.now(), shows: slim })); }
-    catch(e){ console.warn('corpus too large to cache', e); }
+    const built = await buildDiscover();
+    discoverCache = { at: Date.now(), recs: built.recs, seedSignature: built.seedSignature };
+    try { localStorage.setItem(DISCOVER_KEY, JSON.stringify(discoverCache)); }
+    catch(e){ console.warn('discover cache too large to store', e); }
   } catch(e){
-    corpusError = apiMessage(e);
+    discoverError = apiMessage(e);
   }
-  corpusLoading = false;
+  discoverLoading = false;
   if(route.name === 'discover') viewDiscover();
-  return corpus;
+  return discoverCache;
 }
 
-/* how much you like each genre, weighted by episodes actually watched */
-function genreProfile(){
-  const prof = {}; let any = false;
-  allShows().forEach(function(rec){
-    const pr = progress(rec.id);
-    if(!pr) return;
-    const weight = pr.done > 0 ? pr.done : (rec.favourite || rec.saved ? 1 : 0);
-    if(weight <= 0) return;
-    (rec.genres || []).forEach(function(g){
-      prof[g] = (prof[g] || 0) + weight;
-      any = true;
-    });
-  });
-  if(!any) return null;
-  const max = Math.max.apply(null, Object.keys(prof).map(k => prof[k]));
-  Object.keys(prof).forEach(k => prof[k] = prof[k] / max);   /* 0..1 */
-  return prof;
-}
-
-function recommendations(limit){
-  if(!corpus) return [];
-  const prof = genreProfile();
-  if(!prof) return [];
-  const seen = {};
-  allShows().forEach(s => seen[s.id] = true);
-  const topGenres = Object.keys(prof).sort((a,b) => prof[b] - prof[a]);
-
-  const scored = corpus.filter(c => !seen[c.id]).map(function(c){
-    let overlap = 0, matched = [];
-    c.genres.forEach(function(g){
-      if(prof[g]){ overlap += prof[g]; matched.push(g); }
-    });
-    if(!overlap) return null;
-    /* average the affinity so a 5-genre show isn't automatically ahead of a focused one */
-    const affinity = overlap / Math.sqrt(c.genres.length);
-    const score = affinity * (0.55 + (c.rating / 10) * 0.45);
-    return { show: c, score: score, matched: matched };
-  }).filter(Boolean);
-
-  scored.sort((a,b) => b.score - a.score);
-
-  /* which of your shows most explains this pick */
-  return scored.slice(0, limit || 24).map(function(r){
-    let best = null, bestOverlap = 0;
-    allShows().forEach(function(rec){
-      const pr = progress(rec.id);
-      if(!pr || pr.done === 0) return;
-      const shared = (rec.genres || []).filter(g => r.matched.indexOf(g) > -1).length;
-      if(shared > bestOverlap){ bestOverlap = shared; best = rec; }
-    });
-    r.because = best;
-    return r;
-  });
+/* TMDB id -> real TVmaze id, resolved only when the user actually wants
+   to add something — see the header note on why this isn't done for the
+   whole pool up front. */
+async function addFromDiscover(tmdbId, btn){
+  if(btn){ btn.textContent = 'Finding it…'; btn.disabled = true; }
+  try {
+    const ext = await tmdb('/tv/' + tmdbId + '/external_ids');
+    if(!ext.imdb_id) throw new Error('no-imdb');
+    const r = await fetch(API + '/lookup/shows?imdb=' + ext.imdb_id);
+    if(!r.ok) throw new Error('not-on-tvmaze');
+    const show = await r.json();
+    await addSeries(show.id);
+  } catch(e){
+    toast("Couldn't find this one on TVmaze to add it");
+    if(btn){ btn.textContent = 'Add to library'; btn.disabled = false; }
+  }
 }
 
 function viewDiscover(){
-  const prof = genreProfile();
+  const seeds = seedProfile();
 
-  if(!prof){
+  if(!seeds.length){
     mainEl.innerHTML = '<div class="view"><p class="h-eyebrow">Discover</p>' +
       '<h1 class="h-title">Find your next show.</h1>' +
       emptyState('🎭', 'Watch something first',
-        'Mark a few episodes and this page will suggest shows that match the genres you actually watch.',
+        'Mark a few episodes and this page will recommend shows based on everything you actually watch — not just one genre.',
         { id:'ctaAdd3', label:'Add a series' }) + '</div>';
     const b = document.getElementById('ctaAdd3'); if(b) b.onclick = openAddSheet;
     return;
   }
+  if(!tmdbOn()){
+    mainEl.innerHTML = '<div class="view"><p class="h-eyebrow">Discover</p>' +
+      '<h1 class="h-title">Find your next show.</h1>' +
+      emptyState('🔑', 'Needs a TMDB key',
+        'Recommendations are built from TMDB\'s per-show data. Add a TMDB key to the file to enable this page.') + '</div>';
+    return;
+  }
 
-  const topGenres = Object.keys(prof).sort((a,b) => prof[b] - prof[a]).slice(0,5);
+  const topSeedNames = seeds.slice(0, 3).map(s => s.rec.name);
   let html = '<div class="view"><p class="h-eyebrow">Discover</p>' +
-    '<h1 class="h-title">Because you watch ' + esc(topGenres[0].toLowerCase()) + '.</h1>' +
-    '<p class="h-sub">Matched on the genres you spend the most episodes in.</p>' +
-    '<div class="chiprow" style="margin-top:16px">' +
-      topGenres.map(g => '<span class="chip">' + esc(g) +
-        '<span class="n">' + Math.round(prof[g] * 100) + '</span></span>').join('') +
-    '</div>';
+    '<h1 class="h-title">Picked for you.</h1>' +
+    '<p class="h-sub">Built from ' + esc(topSeedNames.join(', ')) +
+      (seeds.length > 3 ? ' and ' + (seeds.length - 3) + ' more' : '') + ' — not just one show.</p>';
 
-  if(corpusLoading){
-    html += '<p class="hint">Building your recommendation pool…</p>' + skeletonCards(4) + '</div>';
+  if(discoverLoading){
+    html += '<p class="hint">Cross-checking recommendations across your library…</p>' + skeletonCards(4) + '</div>';
     mainEl.innerHTML = html;
     return;
   }
-  if(!corpus){
-    html += (corpusError
-      ? '<p class="error">' + esc(corpusError) + '</p>'
-      : '<p class="h-sub">Fetch a pool of shows to match against — about 1000 titles, cached for a month.</p>') +
-      '<button class="btn primary wide" id="btnLoadCorpus" style="margin-top:14px">' +
-      (corpusError ? 'Try again' : 'Load recommendations') + '</button></div>';
+  if(!discoverCache){
+    html += (discoverError
+      ? '<p class="error">' + esc(discoverError) + '</p>'
+      : '<p class="h-sub">Pulls recommendations for your most-watched shows and cross-checks them against each other, so one show can\'t flood the list.</p>') +
+      '<button class="btn primary wide" id="btnLoadDiscover" style="margin-top:14px">' +
+      (discoverError ? 'Try again' : 'Load recommendations') + '</button></div>';
     mainEl.innerHTML = html;
-    document.getElementById('btnLoadCorpus').onclick = loadCorpus;
+    document.getElementById('btnLoadDiscover').onclick = () => loadDiscover(false);
     return;
   }
 
-  const recs = recommendations(24);
+  const recs = discoverCache.recs;
   if(!recs.length){
     html += emptyState('🤷', 'Nothing new to suggest',
-      'Everything matching your genres is already in your library. Try adding a show from a new genre.') + '</div>';
+      'TMDB didn\'t have fresh recommendations for what you\'re watching right now. Try again after watching a bit more.') + '</div>';
     mainEl.innerHTML = html;
     return;
   }
 
   html += '<div class="sect">' + recs.map(function(r){
-    const c = r.show;
+    const becauseText = r.because.length > 1
+      ? 'Because you watch ' + r.because[0] + ' and ' + r.because[1]
+      : 'Because you watch ' + r.because[0];
     return '<div class="recwrap">' +
-      (c.image
-        ? '<img class="recposter" src="' + esc(c.image) + '" alt="" loading="lazy">'
-        : '<div class="recposter ph">' + esc(c.name.charAt(0)) + '</div>') +
+      (r.poster
+        ? '<img class="recposter" src="' + esc(r.poster) + '" alt="" loading="lazy">'
+        : '<div class="recposter ph">' + esc(r.name.charAt(0)) + '</div>') +
       '<div class="recbody">' +
-        '<h4>' + esc(c.name) + '</h4>' +
-        '<div class="mono">' + (c.premiered ? c.premiered.slice(0,4) : '—') +
-          ' · ★ ' + c.rating + ' · ' + esc(c.genres.slice(0,2).join(', ')) + '</div>' +
-        (r.because ? '<div class="recwhy">Because you watch ' + esc(r.because.name) + '</div>' : '') +
-        (c.summary ? '<div class="recsum">' + esc(c.summary) + '…</div>' : '') +
-        '<button class="btn sm" data-add="' + c.id + '" style="align-self:flex-start;margin-top:2px">' +
+        '<h4>' + esc(r.name) + '</h4>' +
+        '<div class="mono">' + (r.premiered || '—') +
+          (r.rating ? ' · ★ ' + r.rating : '') +
+          (r.genres.length ? ' · ' + esc(r.genres.join(', ')) : '') + '</div>' +
+        '<div class="recwhy">' + esc(becauseText) +
+          (r.corroboration > 1 ? ' <span class="mono">· ' + r.corroboration + ' matches</span>' : '') + '</div>' +
+        (r.summary ? '<div class="recsum">' + esc(r.summary) + '…</div>' : '') +
+        '<button class="btn sm" data-addtmdb="' + r.tmdbId + '" style="align-self:flex-start;margin-top:2px">' +
           'Add to library</button>' +
       '</div></div>';
   }).join('') + '</div>';
 
-  html += '<button class="btn wide" id="btnRefreshCorpus" style="margin-top:8px">Refresh the pool</button></div>';
+  html += '<button class="btn wide" id="btnRefreshDiscover" style="margin-top:8px">Refresh recommendations</button></div>';
   mainEl.innerHTML = html;
-  document.getElementById('btnRefreshCorpus').onclick = function(){
-    localStorage.removeItem(CORPUS_KEY); corpus = null; loadCorpus();
+  document.getElementById('btnRefreshDiscover').onclick = function(){
+    localStorage.removeItem(DISCOVER_KEY); discoverCache = null; loadDiscover(true);
   };
 }
 
@@ -2501,31 +2583,33 @@ async function tmdb(path){
   return r.json();
 }
 
+/* Resolves and caches rec.tmdbId, recovering a missing rec.imdb along the
+   way (series migrated from v2, or added before the app stored it, have
+   neither). Shared by platform detection and Discover — both need to get
+   from "a show in this library" to "a TMDB id" the same way. */
+async function ensureTmdbId(rec){
+  if(rec.tmdbId) return rec.tmdbId;
+  if(!rec.imdb){
+    try {
+      const fresh = await fetchShow(rec.id);
+      rec.imdb = (fresh.externals && fresh.externals.imdb) || null;
+    } catch(e){ /* TVmaze unreachable — fall through to the null below */ }
+  }
+  if(!rec.imdb) return null;
+  const found = await tmdb('/find/' + encodeURIComponent(rec.imdb) + '?external_source=imdb_id');
+  const hit = (found.tv_results && found.tv_results[0]) || null;
+  if(!hit) return null;
+  rec.tmdbId = hit.id;
+  return hit.id;
+}
+
 /* returns { platformId, providerName, watchPage } or null */
 async function lookupProviders(showId){
   const rec = db.shows[showId];
   if(!rec || !tmdbOn()) return null;
 
-  let tmdbId = rec.tmdbId;
-  if(!tmdbId){
-    /* Series migrated from v2, and anything added before we started storing
-       the IMDb id, have no rec.imdb — which made detection give up here and
-       silently leave both the platform and the TMDB watch page unset. The
-       TVmaze id is the record id, so fetch the missing id on demand rather
-       than making the user run a separate refresh first. */
-    if(!rec.imdb){
-      try {
-        const fresh = await fetchShow(rec.id);
-        rec.imdb = (fresh.externals && fresh.externals.imdb) || null;
-      } catch(e){ /* TVmaze unreachable — fall through to the null below */ }
-    }
-    if(!rec.imdb) return null;                /* nothing to match on */
-    const found = await tmdb('/find/' + encodeURIComponent(rec.imdb) + '?external_source=imdb_id');
-    const hit = (found.tv_results && found.tv_results[0]) || null;
-    if(!hit) return null;
-    tmdbId = hit.id;
-    rec.tmdbId = tmdbId;
-  }
+  const tmdbId = await ensureTmdbId(rec);
+  if(!tmdbId) return null;                    /* nothing to match on */
 
   const prov = await tmdb('/tv/' + tmdbId + '/watch/providers');
   const here = prov.results && prov.results[TMDB_REGION];
@@ -2769,6 +2853,7 @@ function openMenu(id){
   else html += item('data-hold="' + id + '"', 'pause', 'Put on hold');
   if(p.status !== 'done') html += item('data-complete="' + id + '" data-close="1"', 'check', 'Mark series completed');
   else html += item('data-rewatch="' + id + '" data-close="1"', 'refresh', 'Watch again');
+  if(p.status !== 'new') html += item('data-notstarted="' + id + '" data-close="1"', 'back', 'Mark as not started');
   html += '<div class="sheet-group">Manage</div>';
   html += item('data-refresh="' + id + '" data-close="1"', 'refresh', 'Refresh from TVmaze');
   html += item('data-del="' + id + '"', 'trash', 'Remove from library', 'danger');
@@ -2976,8 +3061,8 @@ function rerender(){
 document.addEventListener('click', function(e){
   const t = e.target.closest('[data-go],[data-open],[data-fav],[data-pin],[data-prio],[data-mark],' +
     '[data-menu],[data-toggle],[data-sopen],[data-sall],[data-supto],[data-ssel],[data-tohere],' +
-    '[data-back],[data-step],[data-hold],[data-resume],[data-complete],[data-rewatch],[data-del],' +
-    '[data-refresh],[data-note],[data-platsheet],[data-pset],[data-add],[data-fstatus],[data-sumstatus],[data-settheme],[data-watch],[data-setlink],[data-detect],[data-watchpage],' +
+    '[data-back],[data-step],[data-hold],[data-resume],[data-complete],[data-rewatch],[data-notstarted],[data-del],' +
+    '[data-refresh],[data-note],[data-platsheet],[data-pset],[data-add],[data-addtmdb],[data-fstatus],[data-sumstatus],[data-settheme],[data-watch],[data-setlink],[data-detect],[data-watchpage],' +
     '[data-pmove],[data-ptoggle],[data-pdel],[data-bulk],[data-close]');
 
   /* episode multi-select swallows row taps first */
@@ -2998,6 +3083,7 @@ document.addEventListener('click', function(e){
   if(d.back)  { return go(db.prefs.lastTab || 'home'); }
   if(d.open)  { closeSheet(); return go('show', d.open); }
   if(d.add)   { return addSeries(d.add); }
+  if(d.addtmdb) { return addFromDiscover(d.addtmdb, t); }
 
   if(d.fav){
     const r = db.shows[d.fav]; r.favourite = !r.favourite; r.touched = Date.now(); save();
@@ -3067,6 +3153,22 @@ document.addEventListener('click', function(e){
     db.watched[d.rewatch] = {}; r.completedAt = null; r.touched = Date.now();
     save(); if(d.close) closeSheet(); rerender();
     toast('Starting over', function(){ db.watched[d.rewatch] = snap; save(); rerender(); });
+    return;
+  }
+  if(d.notstarted){
+    /* Distinct from "Watch again": that one only ever shows up for a
+       completed series, where hold is guaranteed unset already. This
+       covers "watching" and "hold" too, so it must clear hold itself —
+       otherwise the show would still read as on hold, not not-started. */
+    const r = db.shows[d.notstarted];
+    if(!confirm('Clear all watch progress for "' + r.name + '" and mark it not started?')) return;
+    const snapWatched = Object.assign({}, db.watched[d.notstarted] || {});
+    const snapHold = r.hold;
+    db.watched[d.notstarted] = {}; r.hold = null; r.completedAt = null; r.touched = Date.now();
+    save(); if(d.close) closeSheet(); rerender();
+    toast('Marked as not started', function(){
+      db.watched[d.notstarted] = snapWatched; r.hold = snapHold; save(); rerender();
+    });
     return;
   }
   if(d.del){
