@@ -471,7 +471,7 @@ select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
 const K3 = 'spine-v3', K2 = 'spine-v2';
 /* Bumped on every change. Shown in Settings so you can tell at a glance
    whether the version you're looking at is the one that was deployed. */
-const BUILD = 'b24 · auto-watchpage';
+const BUILD = 'b25 · import-replaces';
 
 /* Optional. Get a free key at themoviedb.org → Settings → API.
    Leave as-is and the app simply keeps asking you to pick the platform
@@ -2410,11 +2410,19 @@ function importData(e){
     catch(err){ toast("That file isn't valid JSON"); return; }
     if(!data || !data.shows){ toast("That doesn't look like a SPINE backup"); return; }
     const incoming = Object.keys(data.shows).length;
-    if(!confirm('Merge ' + incoming + ' series from this backup into your library?\n\n' +
-                'Existing series keep whichever watch history is larger.')) return;
-    /* merge, never clobber */
+    const replacing = Object.keys(data.shows).filter(id => db.shows[id]).length;
+    if(!confirm('Import ' + incoming + ' series from this backup?\n\n' +
+                replacing + ' already in your library will be replaced with the backup\'s version ' +
+                '(name, platform, link, etc.) — ' + (incoming - replacing) + ' new series will be added. ' +
+                'Watch history is kept either way, never replaced.')) return;
+    /* Series a show isn't in the backup at all are left completely alone.
+       A matching show is replaced wholesale with the backup's record —
+       that's the point of importing a corrected backup over an existing
+       library. Watched episodes are the one exception: always unioned,
+       never replaced, so a stale backup can never erase progress made
+       since it was exported. */
     Object.keys(data.shows).forEach(function(id){
-      if(!db.shows[id]) db.shows[id] = data.shows[id];
+      db.shows[id] = data.shows[id];
     });
     Object.keys(data.watched || {}).forEach(function(sid){
       const mine = db.watched[sid] || {};
@@ -2424,7 +2432,9 @@ function importData(e){
     (data.platforms || []).forEach(function(p){
       if(!db.platforms.some(x => x.id === p.id)) db.platforms.push(p);
     });
-    save(); viewSettings(); toast('Backup merged — ' + incoming + ' series processed');
+    save(); viewSettings();
+    toast(replacing ? incoming + ' series imported — ' + replacing + ' replaced, ' + (incoming - replacing) + ' added'
+                     : incoming + ' series added');
   };
   fr.readAsText(file);
   e.target.value = '';
